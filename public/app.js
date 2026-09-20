@@ -532,17 +532,34 @@ function renderReport(report, meta) {
     categoryDetails.appendChild(card);
   });
 
-  renderPages(report.pages);
+  renderPages(report.pages, report.renderMode);
 }
 
-function renderPages(pages) {
+function renderPages(pages, renderMode) {
   pagesList.innerHTML = "";
+
+  if (renderMode) {
+    const note = document.createElement("div");
+    if (renderMode === "rendered") {
+      note.className = "mode-note rendered";
+      note.innerHTML = `<strong>Erfassung mit JavaScript-Rendering.</strong> Auch nachgeladene Inhalte wie Bewertungs-Widgets, Trust-Siegel und Countdown-Banner wurden ausgewertet.`;
+    } else if (renderMode === "html") {
+      note.className = "mode-note html";
+      note.innerHTML = `<strong>Erfassung ohne JavaScript-Rendering.</strong> Inhalte, die ein Shop erst per JavaScript nachlädt (häufig Bewertungen, Trust-Siegel, Countdowns), konnten nicht erfasst werden und können hier fälschlich als fehlend erscheinen.`;
+    } else {
+      note.className = "mode-note html";
+      note.innerHTML = `<strong>Gemischte Erfassung.</strong> Ein Teil der Seiten wurde ohne JavaScript-Rendering erfasst; dort können nachgeladene Inhalte fälschlich als fehlend erscheinen.`;
+    }
+    pagesList.appendChild(note);
+  }
+
   pages.forEach((p) => {
     const row = document.createElement("div");
     row.className = "page-row" + (p.ok ? "" : " error");
+    const mode = p.mode === "rendered" ? "gerendert" : "nur HTML";
     row.innerHTML = `
       <span class="url">${escapeHtml(p.finalUrl || p.url)}</span>
-      <span class="meta">${p.ok ? `${p.status} · ${p.loadTimeMs} ms · ${p.sizeKb} KB` : escapeHtml(p.error || "Fehler")}</span>
+      <span class="meta">${p.ok ? `${mode} · ${p.status} · ${p.loadTimeMs} ms · ${p.sizeKb} KB` : escapeHtml(p.error || "Fehler")}</span>
     `;
     pagesList.appendChild(row);
   });

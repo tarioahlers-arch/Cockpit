@@ -622,3 +622,14 @@ body.report-mode .form-panel { display: none; }
   width: 100%;
 }
 .form-panel select:focus { outline: 2px solid var(--accent-dim); }
+
+.mode-note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border-left: 3px solid var(--panel-border);
+}
+.mode-note.rendered { background: #0d1f1c; border-left-color: var(--accent-dim); color: var(--text-dim); }
+.mode-note.html { background: #1f1a0d; border-left-color: var(--warn); color: #d9c48a; }

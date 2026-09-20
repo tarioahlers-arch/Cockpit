@@ -139,6 +139,50 @@ Die Texte werden deterministisch aus den Analysedaten formuliert: kein externer
 Dienst, kein API-Key, keine laufenden Kosten – der gleiche Shop-Zustand ergibt
 immer denselben Report.
 
+## JavaScript-Rendering
+
+Viele moderne Shops (Shopify, React, Vue) laden Bewertungs-Widgets, Gütesiegel und
+Countdown-Banner erst per JavaScript nach. Ein reiner HTML-Abruf sieht davon nichts
+und meldet Lücken, die es gar nicht gibt. Der Unterschied ist erheblich – derselbe
+Test-Shop, einmal ohne und einmal mit Rendering:
+
+| Erfassung | Score | Navigation | Vertrauen | Preisdarstellung |
+|---|---|---|---|---|
+| nur HTML | **16** (Ungenügend) | 0 | 0 | 0 |
+| gerendert | **85** (Gut) | 100 | 75 | 100 |
+
+Cockpit erkennt selbst, ob ein Browser verfügbar ist:
+
+- **Verfügbar** → Seiten werden in Chromium geladen und ausgeführt. Bilder, Videos und
+  Schriften werden dabei blockiert (spart Zeit und Speicher, ohne die Prüfungen zu
+  beeinflussen). Der Browser wird wiederverwendet und nach zwei Minuten Leerlauf beendet.
+- **Nicht verfügbar** → automatischer Rückfall auf den HTML-Abruf. Die Analyse läuft
+  weiter, und Oberfläche wie Kundenbericht weisen den Modus ausdrücklich aus, weil er
+  die Belastbarkeit der Befunde bestimmt.
+
+Aktivieren:
+
+```bash
+npm install playwright
+npx playwright install chromium
+```
+
+Mit `COCKPIT_RENDER=0` lässt sich das Rendering abschalten. Der Status ist unter
+`/api/status` abrufbar.
+
+### Auf Render
+
+Rendering braucht rund 400 MB Arbeitsspeicher. **Der Free-Tier mit 512 MB reicht dafür
+in der Regel nicht** – dort bleibt es beim HTML-Abruf, was funktioniert, aber bei
+JavaScript-lastigen Shops zu strenge Werte liefert. Für eine bezahlte Instanz
+(ab ca. 7 $/Monat) das Build Command umstellen auf:
+
+```
+npm install && npx playwright install chromium
+```
+
+Der Build lädt dann Chromium herunter und dauert entsprechend länger.
+
 ## Nutzung
 
 ```bash

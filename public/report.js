@@ -466,6 +466,24 @@ function buildFairness(report) {
   `;
 }
 
+function buildModeNote(report) {
+  if (report.renderMode === "rendered") {
+    return `<p>Die Seiten wurden <strong>in einem echten Browser geladen und ausgeführt</strong>. Damit
+    sind auch Inhalte erfasst, die ein Shop erst per JavaScript nachlädt – etwa Bewertungs-Widgets,
+    Gütesiegel oder Countdown-Banner.</p>`;
+  }
+  if (report.renderMode === "mixed") {
+    return `<p class="doc-hint">Ein Teil der Seiten konnte nur als Quelltext erfasst werden. Dort
+    lassen sich Inhalte, die erst per JavaScript nachgeladen werden, nicht auswerten; einzelne
+    Kriterien können deshalb strenger bewertet sein als es der tatsächliche Zustand rechtfertigt.</p>`;
+  }
+  return `<p class="doc-hint">Die Seiten wurden als Quelltext erfasst, ohne JavaScript auszuführen.
+  Inhalte, die ein Shop erst nachlädt – häufig Bewertungen, Gütesiegel und Countdown-Banner –
+  konnten dabei nicht erfasst werden. Einzelne Kriterien können deshalb strenger bewertet sein,
+  als es der tatsächliche Zustand rechtfertigt; sie sollten vor einer Umsetzung stichprobenartig
+  im Browser gegengeprüft werden.</p>`;
+}
+
 function buildNextSteps(phaseGroups) {
   const quick = phaseGroups[0].findings.length;
   const mid = phaseGroups[1].findings.length;
@@ -582,6 +600,7 @@ function renderConsultingReport() {
       <h2>10. Methodik, Quellen und Grenzen</h2>
       <p>Grundlage ist eine automatisierte Analyse der öffentlich abrufbaren Shop-Seiten. Geprüft wurden:</p>
       <ul class="doc-list">${checkedPages}</ul>
+      ${buildModeNote(report)}
       <p>Erkannt werden Signale im ausgelieferten Seiteninhalt (Text- und Strukturmuster). Die
       Bewertungskriterien leiten sich aus den verhaltensökonomischen Prinzipien von Daniel Kahneman
       (Verlustaversion, System 1/System 2, Framing, Ankereffekt) und Richard Thaler (Default-Effekt,

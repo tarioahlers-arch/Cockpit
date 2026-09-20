@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchPage, normalizeUrl } from "./lib/fetcher.js";
 import { buildReport } from "./lib/analyzer.js";
+import { isRenderingAvailable, renderingUnavailableReason } from "./lib/renderer.js";
 import {
   INDUSTRIES,
   DEVICE_RATES,
@@ -21,6 +22,18 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+// Rendering wird genutzt, sobald ein Browser verfügbar ist. COCKPIT_RENDER=0
+// schaltet es ab, etwa auf Instanzen mit knappem Arbeitsspeicher.
+const renderEnabled = process.env.COCKPIT_RENDER !== "0";
+
+app.get("/api/status", async (_req, res) => {
+  const available = renderEnabled ? await isRenderingAvailable() : false;
+  res.json({
+    rendering: available,
+    reason: available ? null : renderEnabled ? renderingUnavailableReason() : "per COCKPIT_RENDER=0 deaktiviert",
+  });
+});
 
 app.get("/api/benchmarks", (_req, res) => {
   res.json({
@@ -47,7 +60,17 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
-    const pages = await Promise.all(normalized.map((u) => fetchPage(u)));
+    const useRendering = renderEnabled && (await isRenderingAvailable());
+    // Gerenderte Seiten nacheinander: Ein Browser mit mehreren Seiten
+    // gleichzeitig ist der Hauptgrund für Speicherprobleme auf kleinen
+    // Instanzen. Ohne Rendering bleibt es beim parallelen Abruf.
+    let pages;
+    if (useRendering) {
+      pages = [];
+      for (const u of normalized) pages.push(await fetchPage(u, { render: true }));
+    } else {
+      pages = await Promise.all(normalized.map((u) => fetchPage(u)));
+    }
     const report = buildReport(pages);
     // Die gewählte Branche wandert mit in den Bericht, damit archivierte
     // Läufe ihren Benchmark-Bezug behalten.

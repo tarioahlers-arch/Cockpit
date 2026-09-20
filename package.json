@@ -1,0 +1,15 @@
+{
+  "name": "cockpit",
+  "version": "1.0.0",
+  "description": "E-Commerce Experience Audit – goodFil-artige Checkliste + Behamics-inspirierte Nudge-Empfehlungen für Online-Shops",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.19.2"
+  }
+}

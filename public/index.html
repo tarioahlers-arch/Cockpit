@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cockpit – E-Commerce Experience Audit</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◎</span>
+      <div>
+        <h1>Cockpit</h1>
+        <p class="subtitle">E-Commerce Experience Audit &mdash; Mystery-Shopping-Logik für Online-Shops, Empfehlungen nach Behavioral-Nudge-Prinzipien</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel intro">
+      <p>
+        Cockpit prüft einen Online-Shop anhand eines strukturierten Kriterienkatalogs &mdash;
+        wie ein Mystery-Shopping-Testbericht, aber für den Online-Handel. Jede Lücke liefert
+        eine konkrete Empfehlung, benannt nach dem zugrunde liegenden Verhaltensprinzip
+        (Social Proof, Scarcity, Anchoring, Friktionsreduktion &hellip;).
+      </p>
+    </section>
+
+    <section class="panel form-panel">
+      <form id="audit-form">
+        <div class="field">
+          <label for="url-home">Startseite <span class="req">*</span></label>
+          <input id="url-home" name="home" type="text" placeholder="https://www.beispiel-shop.de" required />
+        </div>
+        <div class="field">
+          <label for="url-product">Produktseite <span class="opt">(optional)</span></label>
+          <input id="url-product" name="product" type="text" placeholder="https://www.beispiel-shop.de/produkt/123" />
+        </div>
+        <div class="field">
+          <label for="url-checkout">Warenkorb / Checkout <span class="opt">(optional)</span></label>
+          <input id="url-checkout" name="checkout" type="text" placeholder="https://www.beispiel-shop.de/warenkorb" />
+        </div>
+        <button type="submit" id="submit-btn">Analyse starten</button>
+      </form>
+      <p class="hint">Hinweis: Bitte nur Shops analysieren, für die du dazu berechtigt bist. Manche Shops blocken automatisierte Abrufe (Bot-Schutz) &ndash; das äußert sich dann als Ladefehler in der Seiten-Übersicht.</p>
+    </section>
+
+    <section id="status" class="status hidden"></section>
+
+    <section id="results" class="results hidden">
+      <div class="panel overview">
+        <div class="score-dial-wrap">
+          <div id="score-dial" class="score-dial">
+            <span id="score-value">--</span>
+          </div>
+          <div class="grade">
+            <span id="grade-note">-</span>
+            <span id="grade-label">&nbsp;</span>
+          </div>
+        </div>
+        <div id="category-bars" class="category-bars"></div>
+      </div>
+
+      <div id="category-details" class="category-details"></div>
+
+      <div class="panel pages-panel">
+        <h2>Geprüfte Seiten</h2>
+        <div id="pages-list" class="pages-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Cockpit &mdash; inspiriert von goodFil (Step Up AG, Mystery-Shopping-Methodik) und den Nudge-Ansätzen von Behamics für den Online-Handel. Automatisierte Heuristik, ersetzt keine vollständige UX-/CRO-Analyse.</p>
+  </footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

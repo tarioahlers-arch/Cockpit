@@ -98,5 +98,5 @@ WebSocket (Socket.io) at server root, auth via `socket.handshake.auth.token = <J
 
 ## Deutschland-Lokalisierung
 - Alle UI-Texte auf Deutsch, Währung EUR (Format `12,00 €`), Städte: Berlin, Hamburg, München, Köln, Frankfurt am Main, Stuttgart, Düsseldorf, Leipzig.
-- App-Name: **HalpingHand**. Markenfarben (aus dem offiziellen Logo): Blau `#3170B3` (Primary) und Grau `#AAAAAA` (Sekundär/Text), TaskRabbit-inspiriertes, freundliches, aufgeräumtes UI.
+- App-Name: **HalpingHand**. Markenfarben (aus dem offiziellen Logo): Blau `#3170B3` und Weiß sind die primäre Palette (Hand-Icon = weiß auf blau); Grau `#AAAAAA` ist rein stylistisch und wird nur gelegentlich für Sekundärtext/inaktive Zustände eingesetzt, nicht als gleichwertige Markenfarbe. TaskRabbit-inspiriertes, freundliches, aufgeräumtes UI.
 - Footer/Legal-Seiten sollten Platzhalter für Impressum & Datenschutz (GDPR) enthalten (Route reicht, Inhalt kann Platzhalter sein).

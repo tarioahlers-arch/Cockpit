@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HelferHand – Finde Hilfe für jede Aufgabe",
+  title: "HalpingHand – Finde Hilfe für jede Aufgabe",
   description:
-    "HelferHand ist der Aufgaben-Marktplatz für Deutschland. Finde schnell und sicher Hilfe in deiner Stadt.",
+    "HalpingHand ist der Aufgaben-Marktplatz für Deutschland. Finde schnell und sicher Hilfe in deiner Stadt.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -33,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <main className="flex-1 flex flex-col">{children}</main>
           <footer className="border-t border-border mt-12 py-8 text-sm text-muted">
             <div className="container-page flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p>© {new Date().getFullYear()} HelferHand – Demo/MVP-Projekt.</p>
+              <p>© {new Date().getFullYear()} HalpingHand – Demo/MVP-Projekt.</p>
               <div className="flex gap-4">
                 <Link href="/impressum" className="hover:text-primary-dark">
                   Impressum

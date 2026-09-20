@@ -1,8 +1,8 @@
 {
-  "name": "helferhand-backend",
+  "name": "halpinghand-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "HelferHand API - Aufgaben-Marktplatz Backend (TaskRabbit-Ansatz, lokalisiert fuer Deutschland)",
+  "description": "HalpingHand API - Aufgaben-Marktplatz Backend (TaskRabbit-Ansatz, lokalisiert fuer Deutschland)",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

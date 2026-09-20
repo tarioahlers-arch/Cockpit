@@ -82,7 +82,7 @@ export default function RegisterPage() {
     <div className="container-page py-12 max-w-md">
       <h1 className="text-2xl font-bold mb-1">Konto erstellen</h1>
       <p className="text-muted text-sm mb-6">
-        Registriere dich kostenlos bei HelferHand.
+        Registriere dich kostenlos bei HalpingHand.
       </p>
       <form onSubmit={handleSubmit} className="card p-6 space-y-4">
         {error && <ErrorBox message={error} />}

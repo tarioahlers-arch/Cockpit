@@ -1,4 +1,4 @@
-# HelferHand API-Contract
+# HalpingHand API-Contract
 
 Backend: Node.js + Express + Prisma (SQLite) + Socket.io. Base URL in Entwicklung: `http://localhost:4000`.
 Alle Antworten sind JSON. Alle Preise sind **Cent-Integer** in EUR (z.B. `6000` = 60,00 €).
@@ -91,12 +91,12 @@ WebSocket (Socket.io) at server root, auth via `socket.handshake.auth.token = <J
 - `GET /api/admin/tasks?status=` → `{tasks}`
 
 ## Demo-Zugänge (nach `npm run prisma:seed`, Passwort für alle: `Passwort123!`)
-- Admin: `admin@helferhand.de`
-- Kunde: `kunde@helferhand.de`
-- Helfer: `helfer1@helferhand.de` (Berlin, Möbelmontage/Renovierung/Elektro)
-- Helfer: `helfer2@helferhand.de` (München, Umzug/Reinigung/Garten)
+- Admin: `admin@halpinghand.de`
+- Kunde: `kunde@halpinghand.de`
+- Helfer: `helfer1@halpinghand.de` (Berlin, Möbelmontage/Renovierung/Elektro)
+- Helfer: `helfer2@halpinghand.de` (München, Umzug/Reinigung/Garten)
 
 ## Deutschland-Lokalisierung
 - Alle UI-Texte auf Deutsch, Währung EUR (Format `12,00 €`), Städte: Berlin, Hamburg, München, Köln, Frankfurt am Main, Stuttgart, Düsseldorf, Leipzig.
-- App-Name: **HelferHand**. Markenfarbe: Grün/Teal (`#0F9D6C` als Primary empfohlen), TaskRabbit-inspiriertes, freundliches, aufgeräumtes UI.
+- App-Name: **HalpingHand**. Markenfarben (aus dem offiziellen Logo): Blau `#3170B3` (Primary) und Grau `#AAAAAA` (Sekundär/Text), TaskRabbit-inspiriertes, freundliches, aufgeräumtes UI.
 - Footer/Legal-Seiten sollten Platzhalter für Impressum & Datenschutz (GDPR) enthalten (Route reicht, Inhalt kann Platzhalter sein).

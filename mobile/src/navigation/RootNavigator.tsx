@@ -9,7 +9,7 @@ export default function RootNavigator() {
   const { token, isLoading } = useAuth();
 
   if (isLoading) {
-    return <LoadingScreen label="HelferHand wird geladen…" />;
+    return <LoadingScreen label="HalpingHand wird geladen…" />;
   }
 
   return <NavigationContainer>{token ? <MainTabs /> : <AuthStack />}</NavigationContainer>;

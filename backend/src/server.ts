@@ -7,5 +7,5 @@ const httpServer = createServer(app);
 initChatGateway(httpServer);
 
 httpServer.listen(env.port, () => {
-  console.log(`[HelferHand] API laeuft auf http://localhost:${env.port}`);
+  console.log(`[HalpingHand] API laeuft auf http://localhost:${env.port}`);
 });

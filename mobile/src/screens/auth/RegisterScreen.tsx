@@ -88,7 +88,7 @@ export default function RegisterScreen({ navigation }: Props) {
         <ScrollView contentContainerStyle={styles.container}>
           <Text style={styles.logo}>Fast geschafft!</Text>
           <Text style={styles.subtitle}>
-            Da HelferHand hier keine echten E-Mails versendet, kannst du deine Adresse direkt bestätigen.
+            Da HalpingHand hier keine echten E-Mails versendet, kannst du deine Adresse direkt bestätigen.
           </Text>
 
           <View style={styles.card}>
@@ -126,7 +126,7 @@ export default function RegisterScreen({ navigation }: Props) {
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.logo}>Konto erstellen</Text>
-        <Text style={styles.subtitle}>Registriere dich kostenlos bei HelferHand.</Text>
+        <Text style={styles.subtitle}>Registriere dich kostenlos bei HalpingHand.</Text>
 
         <View style={styles.row}>
           <TextField label="Vorname" value={firstName} onChangeText={setFirstName} style={styles.half} />

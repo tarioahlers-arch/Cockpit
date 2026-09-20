@@ -1,4 +1,4 @@
-# HelferHand
+# HalpingHand
 
 Ein Aufgaben-Marktplatz nach dem Vorbild von **TaskRabbit**, von Grund auf für den
 deutschen Markt gebaut (deutsche Sprache, EUR, deutsche Städte, DSGVO-Hinweise).
@@ -65,10 +65,10 @@ npx expo start
 
 | Rolle  | E-Mail                     |
 |--------|-----------------------------|
-| Admin  | admin@helferhand.de         |
-| Kunde  | kunde@helferhand.de         |
-| Helfer | helfer1@helferhand.de (Berlin) |
-| Helfer | helfer2@helferhand.de (München) |
+| Admin  | admin@halpinghand.de         |
+| Kunde  | kunde@halpinghand.de         |
+| Helfer | helfer1@halpinghand.de (Berlin) |
+| Helfer | helfer2@halpinghand.de (München) |
 
 ## Tech-Stack
 

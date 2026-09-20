@@ -10,7 +10,7 @@ export default function ImpressumPage() {
         <div>
           <h2 className="font-semibold mb-1">Angaben gemäß § 5 TMG</h2>
           <p>
-            HelferHand GmbH (Demo)
+            HalpingHand GmbH (Demo)
             <br />
             Musterstraße 1<br />
             10115 Berlin
@@ -23,7 +23,7 @@ export default function ImpressumPage() {
           <p>
             Telefon: 030 12345678
             <br />
-            E-Mail: kontakt@helferhand.de (Demo)
+            E-Mail: kontakt@halpinghand.de (Demo)
           </p>
         </div>
         <div>

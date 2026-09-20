@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -58,11 +59,8 @@ export function Nav() {
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-border">
       <div className="container-page flex items-center justify-between h-16">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2 font-bold text-lg text-primary-dark">
-            <span className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-sm">
-              HH
-            </span>
-            HelferHand
+          <Link href="/" className="flex items-center">
+            <Image src="/logo.png" alt="HalpingHand" width={168} height={25} priority className="h-6 w-auto" />
           </Link>
           {user && (
             <nav className="hidden lg:flex items-center gap-1">

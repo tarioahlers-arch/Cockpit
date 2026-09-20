@@ -1,20 +1,20 @@
 {
   "expo": {
-    "name": "HelferHand",
-    "slug": "helferhand",
-    "scheme": "helferhand",
+    "name": "HalpingHand",
+    "slug": "halpinghand",
+    "scheme": "halpinghand",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "de.helferhand.app"
+      "bundleIdentifier": "de.halpinghand.app"
     },
     "android": {
-      "package": "de.helferhand.app",
+      "package": "de.halpinghand.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0F9D6C",
+        "backgroundColor": "#3170B3",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -28,7 +28,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "HelferHand benötigt Zugriff auf deine Fotos, um Bilder im Chat zu versenden."
+          "photosPermission": "HalpingHand benötigt Zugriff auf deine Fotos, um Bilder im Chat zu versenden."
         }
       ]
     ]

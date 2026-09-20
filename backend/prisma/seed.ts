@@ -19,7 +19,7 @@ const CATEGORIES = [
 const CITIES = ["Berlin", "Hamburg", "München", "Köln", "Frankfurt am Main", "Stuttgart", "Düsseldorf", "Leipzig"];
 
 async function main() {
-  console.log("Seeding HelferHand Datenbank...");
+  console.log("Seeding HalpingHand Datenbank...");
 
   const categories = await Promise.all(
     CATEGORIES.map((c) => prisma.category.upsert({ where: { name: c.name }, update: {}, create: c })),
@@ -28,10 +28,10 @@ async function main() {
   const passwordHash = await bcrypt.hash("Passwort123!", 10);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@helferhand.de" },
+    where: { email: "admin@halpinghand.de" },
     update: {},
     create: {
-      email: "admin@helferhand.de",
+      email: "admin@halpinghand.de",
       passwordHash,
       firstName: "Admina",
       lastName: "Verwalter",
@@ -42,10 +42,10 @@ async function main() {
   });
 
   const customer = await prisma.user.upsert({
-    where: { email: "kunde@helferhand.de" },
+    where: { email: "kunde@halpinghand.de" },
     update: {},
     create: {
-      email: "kunde@helferhand.de",
+      email: "kunde@halpinghand.de",
       passwordHash,
       firstName: "Julia",
       lastName: "Fischer",
@@ -56,10 +56,10 @@ async function main() {
   });
 
   const tasker1 = await prisma.user.upsert({
-    where: { email: "helfer1@helferhand.de" },
+    where: { email: "helfer1@halpinghand.de" },
     update: {},
     create: {
-      email: "helfer1@helferhand.de",
+      email: "helfer1@halpinghand.de",
       passwordHash,
       firstName: "Max",
       lastName: "Weber",
@@ -76,10 +76,10 @@ async function main() {
   });
 
   const tasker2 = await prisma.user.upsert({
-    where: { email: "helfer2@helferhand.de" },
+    where: { email: "helfer2@halpinghand.de" },
     update: {},
     create: {
-      email: "helfer2@helferhand.de",
+      email: "helfer2@halpinghand.de",
       passwordHash,
       firstName: "Sophie",
       lastName: "Klein",

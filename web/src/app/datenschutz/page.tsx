@@ -10,14 +10,14 @@ export default function DatenschutzPage() {
         <div>
           <h2 className="font-semibold mb-1">1. Verantwortlicher</h2>
           <p>
-            HelferHand GmbH (Demo), Musterstraße 1, 10115 Berlin. Kontakt für
-            Datenschutzanfragen: datenschutz@helferhand.de (Demo).
+            HalpingHand GmbH (Demo), Musterstraße 1, 10115 Berlin. Kontakt für
+            Datenschutzanfragen: datenschutz@halpinghand.de (Demo).
           </p>
         </div>
         <div>
           <h2 className="font-semibold mb-1">2. Erhobene Daten</h2>
           <p>
-            Im Rahmen der Nutzung von HelferHand verarbeiten wir Kontodaten (Name, E-Mail,
+            Im Rahmen der Nutzung von HalpingHand verarbeiten wir Kontodaten (Name, E-Mail,
             Telefon, Stadt), Aufgabendaten sowie Kommunikationsdaten (Chatnachrichten), um
             die Vermittlung zwischen Auftraggebern und Helfern zu ermöglichen.
           </p>

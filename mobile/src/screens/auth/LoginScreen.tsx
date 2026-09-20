@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -45,7 +46,7 @@ export default function LoginScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.logo}>HelferHand</Text>
+        <Image source={require('../../../assets/icon.png')} style={styles.logoImage} />
         <Text style={styles.subtitle}>Melde dich an, um Aufgaben zu finden oder zu vergeben.</Text>
 
         <TextField
@@ -75,9 +76,9 @@ export default function LoginScreen({ navigation }: Props) {
 
         <View style={styles.demoBox}>
           <Text style={styles.demoTitle}>Demo-Zugänge (Passwort: Passwort123!)</Text>
-          <Text style={styles.demoLine}>kunde@helferhand.de</Text>
-          <Text style={styles.demoLine}>helfer1@helferhand.de</Text>
-          <Text style={styles.demoLine}>helfer2@helferhand.de</Text>
+          <Text style={styles.demoLine}>kunde@halpinghand.de</Text>
+          <Text style={styles.demoLine}>helfer1@halpinghand.de</Text>
+          <Text style={styles.demoLine}>helfer2@halpinghand.de</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -87,7 +88,7 @@ export default function LoginScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   container: { flexGrow: 1, padding: spacing.lg, justifyContent: 'center' },
-  logo: { fontSize: 32, fontWeight: '800', color: colors.primary, textAlign: 'center' },
+  logoImage: { width: 88, height: 88, borderRadius: 20, alignSelf: 'center' },
   subtitle: { fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs, marginBottom: spacing.xl },
   footerRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.lg },
   footerText: { color: colors.textMuted },

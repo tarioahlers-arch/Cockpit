@@ -64,7 +64,7 @@ function VerifyEmailContent() {
               Dein Konto ist jetzt vollständig aktiviert.
             </p>
             <Link href="/tasks" className="btn-primary w-full">
-              Weiter zu HelferHand
+              Weiter zu HalpingHand
             </Link>
           </>
         )}

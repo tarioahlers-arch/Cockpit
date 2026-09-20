@@ -6,7 +6,7 @@ export const api = axios.create({
   baseURL: API_URL,
 });
 
-const TOKEN_KEY = "helferhand_token";
+const TOKEN_KEY = "halpinghand_token";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;

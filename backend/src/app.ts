@@ -28,7 +28,7 @@ app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 app.use("/uploads", express.static(path.resolve(env.uploadDir)));
 
-app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "helferhand-api" }));
+app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "halpinghand-api" }));
 
 app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);

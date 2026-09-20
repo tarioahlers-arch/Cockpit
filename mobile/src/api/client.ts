@@ -8,8 +8,8 @@ import type { ApiError } from '../types';
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:4000';
 
-export const TOKEN_STORAGE_KEY = 'helferhand.token';
-export const USER_STORAGE_KEY = 'helferhand.user';
+export const TOKEN_STORAGE_KEY = 'halpinghand.token';
+export const USER_STORAGE_KEY = 'halpinghand.user';
 
 export const apiClient = axios.create({
   baseURL: API_URL,

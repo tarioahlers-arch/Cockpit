@@ -28,7 +28,7 @@ authRouter.post(
 
     // In production this would send a real email. For this MVP we log it and
     // expose the token via the dev-only endpoint below so the flow is testable end-to-end.
-    console.log(`[HelferHand] Verifizierungslink fuer ${email}: /auth/verify-email?token=${verificationToken}`);
+    console.log(`[HalpingHand] Verifizierungslink fuer ${email}: /auth/verify-email?token=${verificationToken}`);
 
     const token = signToken(user.id);
     res.status(201).json({ token, user: publicUser(user), devVerificationToken: verificationToken });

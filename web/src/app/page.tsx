@@ -38,7 +38,7 @@ export default function HomePage() {
             <span className="text-primary-dark">Schnell, sicher, in deiner Stadt.</span>
           </h1>
           <p className="mt-4 text-muted max-w-xl mx-auto">
-            HelferHand verbindet dich mit vertrauenswürdigen Helfern für Umzug, Montage,
+            HalpingHand verbindet dich mit vertrauenswürdigen Helfern für Umzug, Montage,
             Reinigung, Gartenarbeit und mehr – überall in Deutschland.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">

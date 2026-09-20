@@ -55,7 +55,8 @@
         <div class="overview-head">
           <p id="report-meta" class="report-meta"></p>
           <div class="overview-actions no-print">
-            <button type="button" id="print-btn" class="ghost-btn">Bericht drucken / als PDF speichern</button>
+            <button type="button" id="open-report-btn" class="accent-btn">Consulting-Report erstellen</button>
+            <button type="button" id="print-btn" class="ghost-btn">Audit drucken / als PDF speichern</button>
           </div>
         </div>
         <div class="overview-body">
@@ -113,6 +114,24 @@
       </div>
     </section>
 
+    <section id="consulting-report" class="consulting-report hidden">
+      <div class="panel report-settings no-print">
+        <div class="field">
+          <label for="report-client">Kunde / Empfänger</label>
+          <input id="report-client" type="text" placeholder="z. B. Muster GmbH" />
+        </div>
+        <div class="field">
+          <label for="report-author">Erstellt von</label>
+          <input id="report-author" type="text" placeholder="z. B. deine Agentur" />
+        </div>
+        <div class="report-settings-actions">
+          <button type="button" id="report-print-btn" class="accent-btn">Als PDF speichern / drucken</button>
+          <button type="button" id="report-back-btn" class="ghost-btn">Zurück zur Analyse</button>
+        </div>
+      </div>
+      <article id="report-doc" class="report-doc"></article>
+    </section>
+
     <section id="history-panel" class="panel history-panel no-print">
       <div class="history-head">
         <h2>Verlauf</h2>
@@ -128,5 +147,6 @@
   </footer>
 
 <script src="/app.js"></script>
+<script src="/report.js"></script>
 </body>
 </html>

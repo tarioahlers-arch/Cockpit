@@ -33,6 +33,16 @@ const topFindingsEl = document.getElementById("top-findings");
 
 const CALC_KEY = "cockpit_calc_v1";
 let currentReport = null;
+let currentReportMeta = { domain: "", ts: Date.now() };
+
+// Inhalte aus fremden Quellen (z. B. Redirect-Ziele der geprüften Shops) und
+// Nutzereingaben landen per innerHTML im DOM und müssen escaped werden.
+function escapeHtml(value) {
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+  );
+}
 
 function colorForScore(score) {
   if (score >= 80) return "var(--good)";
@@ -166,7 +176,7 @@ function saveCalcInputs() {
 })();
 
 function formatPct(fraction) {
-  return `${(fraction * 100).toFixed(1).replace(/\.0$/, "")}%`;
+  return `${(fraction * 100).toFixed(1).replace(/\.0$/, "").replace(".", ",")}%`;
 }
 
 function formatEur(n) {
@@ -302,12 +312,13 @@ clearHistoryBtn.addEventListener("click", () => {
 function renderReport(report, meta) {
   resultsEl.classList.remove("hidden");
   currentReport = report;
+  currentReportMeta = { domain: meta.domain, ts: meta.ts };
   renderImpact(report);
 
   if (meta.archived) {
     archiveBanner.classList.remove("hidden");
     archiveBanner.innerHTML = `
-      <span>Archiv-Ansicht vom ${formatDateTime(meta.ts)} für <strong>${meta.domain}</strong></span>
+      <span>Archiv-Ansicht vom ${formatDateTime(meta.ts)} für <strong>${escapeHtml(meta.domain)}</strong></span>
       <button type="button" class="ghost-btn small" id="back-to-current-btn">Zur aktuellen Analyse</button>
     `;
     document.getElementById("back-to-current-btn").addEventListener("click", () => {
@@ -399,8 +410,8 @@ function renderPages(pages) {
     const row = document.createElement("div");
     row.className = "page-row" + (p.ok ? "" : " error");
     row.innerHTML = `
-      <span class="url">${p.finalUrl || p.url}</span>
-      <span class="meta">${p.ok ? `${p.status} · ${p.loadTimeMs} ms · ${p.sizeKb} KB` : p.error || "Fehler"}</span>
+      <span class="url">${escapeHtml(p.finalUrl || p.url)}</span>
+      <span class="meta">${p.ok ? `${p.status} · ${p.loadTimeMs} ms · ${p.sizeKb} KB` : escapeHtml(p.error || "Fehler")}</span>
     `;
     pagesList.appendChild(row);
   });

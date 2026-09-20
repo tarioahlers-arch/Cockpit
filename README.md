@@ -69,6 +69,35 @@ Das ist ein vereinfachtes Modell zur Priorisierung, **keine Garantie** – reale
 Ergebnisse hängen von Shop, Zielgruppe und Umsetzung ab, und einzelne Effekte
 überschneiden sich in der Praxis oft stärker als das Modell annimmt.
 
+## Consulting-Report
+
+Über „Consulting-Report erstellen“ entsteht aus derselben Analyse ein
+präsentationsfertiges Beratungsdokument – nicht die technische Checkliste,
+sondern eine Kundenansicht mit sieben Abschnitten:
+
+1. **Management Summary** – Gesamtbewertung, Stärken, Handlungsbedarf und
+   Potenzial in ausformulierter Prosa
+2. **Ausgangslage** – Bewertungstabelle je Bereich mit Einordnung
+   (Stark / Solide / Ausbaufähig / Kritisch)
+3. **Was bereits gut funktioniert** – die erfüllten Kriterien als Bestandsschutz
+4. **Handlungsempfehlungen** – alle Lücken als Maßnahmen, gegliedert in drei
+   Phasen nach Umsetzungsaufwand (0–4 Wochen / 1–3 Monate / 3–6 Monate) und
+   innerhalb jeder Phase nach erwarteter Wirkung sortiert
+5. **Wirtschaftliche Einordnung** – Potenzial je Phase und gesamt, auf Wunsch
+   in Euro hochgerechnet
+6. **Empfohlenes Vorgehen** – konkrete nächste Schritte
+7. **Methodik und Hinweise** – Vorgehen und Grenzen der Analyse, transparent
+   ausgewiesen
+
+Kunde und Ersteller lassen sich eintragen und erscheinen im Dokumentenkopf.
+Der Report wird als helles Dokument dargestellt und über „Als PDF speichern /
+drucken“ direkt zum PDF – die Tool-Oberfläche wird dabei vollständig
+ausgeblendet, sodass beim Kunden nur das Dokument ankommt.
+
+Die Texte werden deterministisch aus den Analysedaten formuliert: kein externer
+Dienst, kein API-Key, keine laufenden Kosten – der gleiche Shop-Zustand ergibt
+immer denselben Report.
+
 ## Nutzung
 
 ```bash

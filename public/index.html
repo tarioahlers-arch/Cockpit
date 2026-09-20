@@ -73,6 +73,38 @@
         </div>
       </div>
 
+      <div class="panel impact-panel">
+        <div class="impact-head">
+          <h2>Geschätztes Umsatzpotenzial</h2>
+          <button type="button" id="impact-info-toggle" class="ghost-btn small no-print">Wie wird das berechnet?</button>
+        </div>
+        <p id="impact-disclaimer" class="hint hidden">
+          Jedem Kriterium ist ein grober Uplift-Richtwert aus der CRO-/Behavioral-Literatur zugeordnet
+          (z. B. sichtbare Kundenbewertungen &asymp; +3&ndash;8% Conversion). Offene Lücken werden über
+          <code>1 &minus; Produkt(1 &minus; p<sub>i</sub>)</code> kombiniert, damit die Summe nie über 100% steigen kann.
+          Das ist ein vereinfachtes Modell zur <strong>Priorisierung</strong>, keine Garantie &ndash; reale Ergebnisse
+          hängen von Shop, Zielgruppe und Umsetzung ab und Effekte überschneiden sich in der Praxis oft.
+        </p>
+
+        <div class="calc-inputs no-print">
+          <div class="field">
+            <label for="calc-visitors">Besucher / Monat</label>
+            <input id="calc-visitors" type="number" min="0" inputmode="numeric" placeholder="z. B. 10000" />
+          </div>
+          <div class="field">
+            <label for="calc-cr">Conversion-Rate (%)</label>
+            <input id="calc-cr" type="number" min="0" step="0.1" inputmode="decimal" placeholder="z. B. 2.0" />
+          </div>
+          <div class="field">
+            <label for="calc-aov">Ø Bestellwert (€)</label>
+            <input id="calc-aov" type="number" min="0" step="1" inputmode="decimal" placeholder="z. B. 60" />
+          </div>
+        </div>
+
+        <div id="impact-summary" class="impact-summary"></div>
+        <div id="top-findings" class="top-findings"></div>
+      </div>
+
       <div id="category-details" class="category-details"></div>
 
       <div class="panel pages-panel">

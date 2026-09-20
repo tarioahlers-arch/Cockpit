@@ -23,6 +23,17 @@ const historyEmpty = document.getElementById("history-empty");
 const historyList = document.getElementById("history-list");
 const clearHistoryBtn = document.getElementById("clear-history-btn");
 
+const impactInfoToggle = document.getElementById("impact-info-toggle");
+const impactDisclaimer = document.getElementById("impact-disclaimer");
+const calcVisitors = document.getElementById("calc-visitors");
+const calcCr = document.getElementById("calc-cr");
+const calcAov = document.getElementById("calc-aov");
+const impactSummary = document.getElementById("impact-summary");
+const topFindingsEl = document.getElementById("top-findings");
+
+const CALC_KEY = "cockpit_calc_v1";
+let currentReport = null;
+
 function colorForScore(score) {
   if (score >= 80) return "var(--good)";
   if (score >= 50) return "var(--warn)";
@@ -125,6 +136,112 @@ function getAllDomainsLatest() {
   return Object.values(byDomain).sort((a, b) => b.ts - a.ts);
 }
 
+// ---------- Umsatz-Rechner (Impact) ----------
+
+function loadCalcInputs() {
+  try {
+    const raw = localStorage.getItem(CALC_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCalcInputs() {
+  try {
+    localStorage.setItem(
+      CALC_KEY,
+      JSON.stringify({ visitors: calcVisitors.value, cr: calcCr.value, aov: calcAov.value })
+    );
+  } catch {
+    // ignorieren (z. B. privater Modus)
+  }
+}
+
+(function initCalcInputs() {
+  const saved = loadCalcInputs();
+  if (saved.visitors) calcVisitors.value = saved.visitors;
+  if (saved.cr) calcCr.value = saved.cr;
+  if (saved.aov) calcAov.value = saved.aov;
+})();
+
+function formatPct(fraction) {
+  return `${(fraction * 100).toFixed(1).replace(/\.0$/, "")}%`;
+}
+
+function formatEur(n) {
+  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+}
+
+function renderImpact(report) {
+  const impact = report.impact;
+
+  if (!impact) {
+    impactSummary.innerHTML = `<div class="impact-note">Für diese ältere, lokal gespeicherte Analyse liegt noch keine Potenzial-Berechnung vor. Führe die Analyse erneut aus, um sie zu sehen.</div>`;
+    topFindingsEl.innerHTML = "";
+    return;
+  }
+
+  const visitors = parseFloat(calcVisitors.value);
+  const cr = parseFloat(calcCr.value);
+  const aov = parseFloat(calcAov.value);
+  const hasCalcInputs = visitors > 0 && cr > 0 && aov > 0;
+
+  let eurHtml = "";
+  if (hasCalcInputs) {
+    const monthlyRevenue = visitors * (cr / 100) * aov;
+    const low = monthlyRevenue * impact.combinedLow;
+    const high = monthlyRevenue * impact.combinedHigh;
+    eurHtml = `<div class="impact-eur">Geschätztes Zusatzpotenzial: <strong>${formatEur(low)} &ndash; ${formatEur(high)} / Monat</strong> (bei aktuell ca. ${formatEur(monthlyRevenue)} Umsatz/Monat)</div>`;
+  } else {
+    eurHtml = `<div class="impact-eur">Besucher, Conversion-Rate und Bestellwert eintragen, um eine &euro;-Schätzung zu sehen.</div>`;
+  }
+
+  impactSummary.innerHTML = `
+    <div class="impact-pct">${formatPct(impact.combinedLow)} &ndash; ${formatPct(impact.combinedHigh)} geschätztes Conversion-Potenzial</div>
+    ${eurHtml}
+    <div class="impact-note">Kombiniertes Modell über alle offenen Lücken &mdash; siehe „Wie wird das berechnet?“</div>
+  `;
+
+  topFindingsEl.innerHTML = "";
+  if (impact.topFindings.length > 0) {
+    const heading = document.createElement("h3");
+    heading.textContent = "Top-Hebel mit dem größten Potenzial";
+    topFindingsEl.appendChild(heading);
+
+    impact.topFindings.forEach((f, i) => {
+      const row = document.createElement("div");
+      row.className = "top-finding-row";
+      let impactTxt = `${formatPct(f.impact.min)}–${formatPct(f.impact.max)} Conversion`;
+      if (hasCalcInputs) {
+        const monthlyRevenue = visitors * (cr / 100) * aov;
+        const low = monthlyRevenue * f.impact.min;
+        const high = monthlyRevenue * f.impact.max;
+        impactTxt = `${formatEur(low)}–${formatEur(high)} / Monat`;
+      }
+      row.innerHTML = `
+        <span class="tf-rank">${i + 1}.</span>
+        <div class="tf-body">
+          <span class="tf-label">${f.label}</span><span class="tf-nudge">${f.nudge}</span>
+        </div>
+        <span class="tf-impact">+${impactTxt}</span>
+      `;
+      topFindingsEl.appendChild(row);
+    });
+  }
+}
+
+impactInfoToggle.addEventListener("click", () => {
+  impactDisclaimer.classList.toggle("hidden");
+});
+
+[calcVisitors, calcCr, calcAov].forEach((input) => {
+  input.addEventListener("input", () => {
+    saveCalcInputs();
+    if (currentReport) renderImpact(currentReport);
+  });
+});
+
 // ---------- Form submit ----------
 
 form.addEventListener("submit", async (e) => {
@@ -184,6 +301,8 @@ clearHistoryBtn.addEventListener("click", () => {
 
 function renderReport(report, meta) {
   resultsEl.classList.remove("hidden");
+  currentReport = report;
+  renderImpact(report);
 
   if (meta.archived) {
     archiveBanner.classList.remove("hidden");
@@ -258,6 +377,7 @@ function renderReport(report, meta) {
           <span class="icon">${f.passed ? "✓" : "✗"}</span>
           <div class="body">
             <span class="label">${f.label}</span><span class="nudge">${f.nudge}</span>
+            ${!f.passed && f.impact && f.impact.max > 0 ? `<span class="impact-badge">+${formatPct(f.impact.min)}–${formatPct(f.impact.max)}</span>` : ""}
             ${f.tip ? `<p class="tip">${f.tip}</p>` : ""}
           </div>
         </div>`

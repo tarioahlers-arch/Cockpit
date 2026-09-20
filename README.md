@@ -50,6 +50,25 @@ ausgegeben.
   sichtbar). Auf dem iPhone: Teilen-Symbol im Druckdialog → „In Dateien
   sichern“ speichert den Bericht als PDF.
 
+## Geschätztes Umsatzpotenzial
+
+Jedes Kriterium trägt einen groben Uplift-Richtwert (z. B. sichtbare
+Kundenbewertungen ≈ +3–8% Conversion), abgeleitet aus in der CRO-/Behavioral-
+Literatur häufig genannten Größenordnungen je Nudge-Typ. Offene Lücken werden
+über `1 − Produkt(1 − pᵢ)` kombiniert, damit die Summe nie über 100% steigen
+kann. Im Bericht erscheinen dadurch:
+
+- ein **kombiniertes Conversion-Potenzial** (Prozent-Spanne) über alle offenen
+  Lücken hinweg,
+- optional eine **€-Schätzung pro Monat**, wenn Besucher/Monat, Conversion-Rate
+  und Ø Bestellwert eingetragen werden (nur lokal im Browser gespeichert),
+- eine **Top-Hebel-Liste** der fünf wirkungsvollsten offenen Lücken zur
+  Priorisierung.
+
+Das ist ein vereinfachtes Modell zur Priorisierung, **keine Garantie** – reale
+Ergebnisse hängen von Shop, Zielgruppe und Umsetzung ab, und einzelne Effekte
+überschneiden sich in der Praxis oft stärker als das Modell annimmt.
+
 ## Nutzung
 
 ```bash

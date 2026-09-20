@@ -29,7 +29,15 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const q = (req.query.q as string) ?? "";
     const users = await prisma.user.findMany({
-      where: q ? { OR: [{ email: { contains: q } }, { firstName: { contains: q } }, { lastName: { contains: q } }] } : undefined,
+      where: q
+        ? {
+            OR: [
+              { email: { contains: q, mode: "insensitive" } },
+              { firstName: { contains: q, mode: "insensitive" } },
+              { lastName: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : undefined,
       orderBy: { createdAt: "desc" },
       take: 100,
     });

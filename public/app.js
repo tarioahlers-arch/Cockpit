@@ -25,11 +25,14 @@ const clearHistoryBtn = document.getElementById("clear-history-btn");
 
 const impactInfoToggle = document.getElementById("impact-info-toggle");
 const impactDisclaimer = document.getElementById("impact-disclaimer");
-const calcVisitors = document.getElementById("calc-visitors");
-const calcCr = document.getElementById("calc-cr");
+const calcIndustry = document.getElementById("calc-industry");
+const calcCarts = document.getElementById("calc-carts");
 const calcAov = document.getElementById("calc-aov");
 const impactSummary = document.getElementById("impact-summary");
 const topFindingsEl = document.getElementById("top-findings");
+const benchmarkBox = document.getElementById("benchmark-box");
+const reasonsBox = document.getElementById("reasons-box");
+const fairnessPanel = document.getElementById("fairness-panel");
 
 const CALC_KEY = "cockpit_calc_v1";
 let currentReport = null;
@@ -146,7 +149,9 @@ function getAllDomainsLatest() {
   return Object.values(byDomain).sort((a, b) => b.ts - a.ts);
 }
 
-// ---------- Umsatz-Rechner (Impact) ----------
+// ---------- Warenkorbabbruch-Rechner ----------
+
+let benchmarks = null;
 
 function loadCalcInputs() {
   try {
@@ -161,19 +166,52 @@ function saveCalcInputs() {
   try {
     localStorage.setItem(
       CALC_KEY,
-      JSON.stringify({ visitors: calcVisitors.value, cr: calcCr.value, aov: calcAov.value })
+      JSON.stringify({ industry: calcIndustry.value, carts: calcCarts.value, aov: calcAov.value })
     );
   } catch {
     // ignorieren (z. B. privater Modus)
   }
 }
 
-(function initCalcInputs() {
+async function initBenchmarks() {
+  try {
+    const res = await fetch("/api/benchmarks");
+    benchmarks = await res.json();
+  } catch {
+    return;
+  }
+
+  calcIndustry.innerHTML = benchmarks.industries
+    .map((i) => `<option value="${i.id}">${escapeHtml(i.name)} · ${formatPct(i.rate)}</option>`)
+    .join("");
+
   const saved = loadCalcInputs();
-  if (saved.visitors) calcVisitors.value = saved.visitors;
-  if (saved.cr) calcCr.value = saved.cr;
+  if (saved.industry) calcIndustry.value = saved.industry;
+  if (saved.carts) calcCarts.value = saved.carts;
   if (saved.aov) calcAov.value = saved.aov;
-})();
+}
+
+function selectedIndustry() {
+  if (!benchmarks) return null;
+  return benchmarks.industries.find((i) => i.id === calcIndustry.value) || benchmarks.industries[0];
+}
+
+// Verlustrechnung nach dem Strategiebericht: abgebrochener Warenkorbwert,
+// bereinigt um den Anteil reiner Rechercheure (43%, Stripe). Erst der Rest
+// ist durch Gestaltung überhaupt adressierbar.
+function abandonmentModel() {
+  const industry = selectedIndustry();
+  const carts = parseFloat(calcCarts.value);
+  const aov = parseFloat(calcAov.value);
+  if (!industry || !(carts > 0) || !(aov > 0)) return null;
+
+  const researchShare = benchmarks.researchOnlyShare;
+  const abandonedCarts = carts * industry.rate;
+  const lostValue = abandonedCarts * aov;
+  const addressable = lostValue * (1 - researchShare);
+
+  return { industry, carts, aov, researchShare, abandonedCarts, lostValue, addressable };
+}
 
 function formatPct(fraction) {
   return `${(fraction * 100).toFixed(1).replace(/\.0$/, "").replace(".", ",")}%`;
@@ -192,26 +230,75 @@ function renderImpact(report) {
     return;
   }
 
-  const visitors = parseFloat(calcVisitors.value);
-  const cr = parseFloat(calcCr.value);
-  const aov = parseFloat(calcAov.value);
-  const hasCalcInputs = visitors > 0 && cr > 0 && aov > 0;
+  const model = abandonmentModel();
+  const industry = selectedIndustry();
 
-  let eurHtml = "";
-  if (hasCalcInputs) {
-    const monthlyRevenue = visitors * (cr / 100) * aov;
-    const low = monthlyRevenue * impact.combinedLow;
-    const high = monthlyRevenue * impact.combinedHigh;
-    eurHtml = `<div class="impact-eur">Geschätztes Zusatzpotenzial: <strong>${formatEur(low)} &ndash; ${formatEur(high)} / Monat</strong> (bei aktuell ca. ${formatEur(monthlyRevenue)} Umsatz/Monat)</div>`;
+  // Benchmark-Einordnung: steht auch ohne eingegebene Kennzahlen.
+  if (industry && benchmarks) {
+    benchmarkBox.innerHTML = `
+      <div class="bm-row">
+        <span class="bm-label">Abbruchrate ${escapeHtml(industry.name)}</span>
+        <span class="bm-value">${formatPct(industry.rate)}</span>
+      </div>
+      <div class="bm-row">
+        <span class="bm-label">Weltweiter Durchschnitt</span>
+        <span class="bm-value">${formatPct(benchmarks.global.rate)}</span>
+      </div>
+      <div class="bm-row">
+        <span class="bm-label">Mobile vs. Desktop</span>
+        <span class="bm-value">${formatPct(benchmarks.devices[0].rate)} vs. ${formatPct(benchmarks.devices[2].rate)}</span>
+      </div>
+      ${industry.driver ? `<p class="bm-driver">Haupttreiber der Branche: ${escapeHtml(industry.driver)}</p>` : ""}
+      <p class="bm-source">Quellen: ${escapeHtml(benchmarks.global.source)}; ${escapeHtml(benchmarks.deviceSource)}</p>
+    `;
+  }
+
+  let eurHtml;
+  if (model) {
+    const recoveredLow = model.addressable * impact.combinedLow;
+    const recoveredHigh = model.addressable * impact.combinedHigh;
+    eurHtml = `
+      <div class="impact-calc">
+        <div class="calc-row"><span>Abgebrochene Warenkörbe</span><span>${Math.round(model.abandonedCarts).toLocaleString("de-DE")} / Monat</span></div>
+        <div class="calc-row"><span>Abgebrochener Warenkorbwert</span><span>${formatEur(model.lostValue)} / Monat</span></div>
+        <div class="calc-row muted"><span>abzüglich ${formatPct(model.researchShare)} reine Rechercheure</span><span>− ${formatEur(model.lostValue - model.addressable)}</span></div>
+        <div class="calc-row strong"><span>Adressierbarer Verlust</span><span>${formatEur(model.addressable)} / Monat</span></div>
+        <div class="calc-row accent"><span>Davon über die gefundenen Lücken erreichbar</span><span>${formatEur(recoveredLow)} – ${formatEur(recoveredHigh)} / Monat</span></div>
+      </div>`;
   } else {
-    eurHtml = `<div class="impact-eur">Besucher, Conversion-Rate und Bestellwert eintragen, um eine &euro;-Schätzung zu sehen.</div>`;
+    eurHtml = `<div class="impact-eur">Warenkörbe/Monat und Ø Bestellwert eintragen, um die Verlustrechnung in Euro zu sehen.</div>`;
   }
 
   impactSummary.innerHTML = `
-    <div class="impact-pct">${formatPct(impact.combinedLow)} &ndash; ${formatPct(impact.combinedHigh)} geschätztes Conversion-Potenzial</div>
+    <div class="impact-pct">${formatPct(impact.combinedLow)} &ndash; ${formatPct(impact.combinedHigh)} Wirkungsgrad der offenen Maßnahmen</div>
     ${eurHtml}
-    <div class="impact-note">Kombiniertes Modell über alle offenen Lücken &mdash; siehe „Wie wird das berechnet?“</div>
+    <div class="impact-note">Modellrechnung zur Priorisierung, keine Zusage &mdash; siehe „Wie wird das berechnet?“</div>
   `;
+
+  // Offene Punkte in der Sprache der Abbruchgründe (Selbstauskunft, Stripe).
+  if (report.reasons) {
+    const rows = report.reasons
+      .map((r) => {
+        const state = r.openCount === 0 ? "ok" : r.openCount === r.totalCount ? "bad" : "partial";
+        const text =
+          r.openCount === 0
+            ? "keine offenen Punkte"
+            : `${r.openCount} von ${r.totalCount} Kriterien offen`;
+        return `
+          <div class="reason-row ${state}">
+            <span class="reason-share">${formatPct(r.share)}</span>
+            <span class="reason-name">${escapeHtml(r.name)}</span>
+            <span class="reason-state">${text}</span>
+          </div>`;
+      })
+      .join("");
+    reasonsBox.innerHTML = `
+      <h3>Abgleich mit den genannten Abbruchgründen</h3>
+      <p class="hint">Anteil der Abbrecher, die diesen Grund selbst nennen – und ob der Shop an dieser Stelle offene Punkte hat.</p>
+      ${rows}
+      <p class="bm-source">Quelle: ${escapeHtml(benchmarks ? benchmarks.reasonsSource : "Stripe 2026")}</p>
+    `;
+  }
 
   topFindingsEl.innerHTML = "";
   if (impact.topFindings.length > 0) {
@@ -222,17 +309,16 @@ function renderImpact(report) {
     impact.topFindings.forEach((f, i) => {
       const row = document.createElement("div");
       row.className = "top-finding-row";
-      let impactTxt = `${formatPct(f.impact.min)}–${formatPct(f.impact.max)} Conversion`;
-      if (hasCalcInputs) {
-        const monthlyRevenue = visitors * (cr / 100) * aov;
-        const low = monthlyRevenue * f.impact.min;
-        const high = monthlyRevenue * f.impact.max;
+      let impactTxt = `${formatPct(f.impact.min)}–${formatPct(f.impact.max)} Wirkung`;
+      if (model) {
+        const low = model.addressable * f.impact.min;
+        const high = model.addressable * f.impact.max;
         impactTxt = `${formatEur(low)}–${formatEur(high)} / Monat`;
       }
       row.innerHTML = `
         <span class="tf-rank">${i + 1}.</span>
         <div class="tf-body">
-          <span class="tf-label">${f.label}</span><span class="tf-nudge">${f.nudge}</span>
+          <span class="tf-label">${escapeHtml(f.label)}</span><span class="tf-nudge">${escapeHtml(f.nudge)}</span>
         </div>
         <span class="tf-impact">+${impactTxt}</span>
       `;
@@ -241,15 +327,57 @@ function renderImpact(report) {
   }
 }
 
+// ---------- Fairness-Befunde ----------
+
+function renderFairness(report) {
+  const fairness = report.fairness;
+  if (!fairness) {
+    fairnessPanel.classList.add("hidden");
+    return;
+  }
+
+  fairnessPanel.classList.remove("hidden");
+
+  if (fairness.flagged.length === 0) {
+    fairnessPanel.className = "panel fairness-panel clean";
+    fairnessPanel.innerHTML = `
+      <h2>Fairness &amp; Transparenz: unauffällig</h2>
+      <p class="hint">In den geprüften Seiten wurden keine Hinweise auf manipulative Muster (Dark Patterns) gefunden. Geprüft wurden ${fairness.checked} Kriterien. Vorgänge, die sich erst im Bestellablauf zeigen, erfordern weiterhin einen manuellen Test.</p>
+    `;
+    return;
+  }
+
+  fairnessPanel.className = "panel fairness-panel flagged";
+  const items = fairness.flagged
+    .map(
+      (f) => `
+      <div class="fairness-item">
+        <div class="fairness-item-head">${escapeHtml(f.label.replace(/^Keine?n? /, "").replace(/^Kein /, ""))}</div>
+        <p>${escapeHtml(f.tip || "")}</p>
+      </div>`
+    )
+    .join("");
+
+  fairnessPanel.innerHTML = `
+    <h2>Fairness &amp; Transparenz: ${fairness.flagged.length} ${fairness.flagged.length === 1 ? "Hinweis" : "Hinweise"} zur Prüfung</h2>
+    <p class="hint">Diese Befunde fließen bewusst <strong>nicht</strong> in den Score ein. Sie sind Prüfaufträge für den manuellen Test, keine abschließende Feststellung. Manipulative Muster senken kurzfristig die Abbruchrate, beschädigen aber Vertrauen und Reputation und geraten regulatorisch zunehmend unter Druck.</p>
+    ${items}
+  `;
+}
+
 impactInfoToggle.addEventListener("click", () => {
   impactDisclaimer.classList.toggle("hidden");
 });
 
-[calcVisitors, calcCr, calcAov].forEach((input) => {
+[calcIndustry, calcCarts, calcAov].forEach((input) => {
   input.addEventListener("input", () => {
     saveCalcInputs();
     if (currentReport) renderImpact(currentReport);
   });
+});
+
+initBenchmarks().then(() => {
+  if (currentReport) renderImpact(currentReport);
 });
 
 // ---------- Form submit ----------
@@ -276,7 +404,7 @@ form.addEventListener("submit", async (e) => {
     const res = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls }),
+      body: JSON.stringify({ urls, industry: calcIndustry.value }),
     });
     const data = await res.json();
 
@@ -314,6 +442,7 @@ function renderReport(report, meta) {
   currentReport = report;
   currentReportMeta = { domain: meta.domain, ts: meta.ts };
   renderImpact(report);
+  renderFairness(report);
 
   if (meta.archived) {
     archiveBanner.classList.remove("hidden");
@@ -361,7 +490,9 @@ function renderReport(report, meta) {
   }
 
   categoryBars.innerHTML = "";
-  report.categories.forEach((cat) => {
+  // Fairness hat ein eigenes Panel und zählt nicht zum Score - sie gehört
+  // deshalb nicht in die Score-Aufschlüsselung.
+  report.categories.filter((c) => !c.inverted).forEach((cat) => {
     const row = document.createElement("div");
     row.className = "cat-bar-row";
     const c = colorForScore(cat.score);
@@ -395,7 +526,7 @@ function renderReport(report, meta) {
       )
       .join("");
     card.innerHTML = `
-      <h3>${cat.name} <span class="cat-score" style="background:${c}22;color:${c}">${cat.score}/100</span></h3>
+      <h3>${escapeHtml(cat.name)} <span class="cat-score" style="background:${c}22;color:${c}">${cat.inverted ? "nicht im Score" : `${cat.score}/100`}</span></h3>
       ${findingsHtml}
     `;
     categoryDetails.appendChild(card);

@@ -12,7 +12,7 @@
       <span class="brand-mark">◎</span>
       <div>
         <h1>Cockpit</h1>
-        <p class="subtitle">E-Commerce Experience Audit &mdash; Mystery-Shopping-Logik für Online-Shops, Empfehlungen nach Behavioral-Nudge-Prinzipien</p>
+        <p class="subtitle">E-Commerce Mystery Shopping &mdash; Checkout- und Cart-Abandonment-Audit mit verhaltensökonomischer Bewertung nach Kahneman und Thaler</p>
       </div>
     </div>
   </header>
@@ -20,10 +20,17 @@
   <main>
     <section class="panel intro no-print">
       <p>
-        Cockpit prüft einen Online-Shop anhand eines strukturierten Kriterienkatalogs &mdash;
-        wie ein Mystery-Shopping-Testbericht, aber für den Online-Handel. Jede Lücke liefert
-        eine konkrete Empfehlung, benannt nach dem zugrunde liegenden Verhaltensprinzip
-        (Social Proof, Scarcity, Anchoring, Friktionsreduktion &hellip;).
+        Weltweit werden rund 70% aller Online-Warenkörbe abgebrochen. Cockpit prüft einen Shop
+        anhand eines strukturierten Kriterienkatalogs auf genau die Punkte, an denen Kunden
+        aussteigen, ordnet den Befund in den Branchen-Benchmark ein und leitet konkrete
+        Maßnahmen nach den Prinzipien von Kahneman und Thaler ab. Gleichzeitig prüft das Tool
+        in die Gegenrichtung: auf manipulative Muster (Dark Patterns), die kurzfristig wirken,
+        aber Vertrauen kosten.
+      </p>
+      <p class="hint">
+        Ein automatisierter Check bewertet Seiteninhalte, nicht das Erlebnis eines Menschen im
+        Bestellprozess. Er grenzt ein, wo ein manueller Testkauf ansetzen sollte &mdash; und
+        ersetzt ihn nicht.
       </p>
     </section>
 
@@ -40,6 +47,10 @@
         <div class="field">
           <label for="url-checkout">Warenkorb / Checkout <span class="opt">(optional)</span></label>
           <input id="url-checkout" name="checkout" type="text" placeholder="https://www.beispiel-shop.de/warenkorb" />
+        </div>
+        <div class="field">
+          <label for="calc-industry">Branche <span class="opt">(für den Abbruch-Benchmark)</span></label>
+          <select id="calc-industry"></select>
         </div>
         <button type="submit" id="submit-btn">Analyse starten</button>
       </form>
@@ -74,35 +85,39 @@
         </div>
       </div>
 
+      <div id="fairness-panel" class="panel fairness-panel hidden"></div>
+
       <div class="panel impact-panel">
         <div class="impact-head">
-          <h2>Geschätztes Umsatzpotenzial</h2>
+          <h2>Warenkorbabbruch &amp; Umsatzpotenzial</h2>
           <button type="button" id="impact-info-toggle" class="ghost-btn small no-print">Wie wird das berechnet?</button>
         </div>
         <p id="impact-disclaimer" class="hint hidden">
-          Jedem Kriterium ist ein grober Uplift-Richtwert aus der CRO-/Behavioral-Literatur zugeordnet
-          (z. B. sichtbare Kundenbewertungen &asymp; +3&ndash;8% Conversion). Offene Lücken werden über
-          <code>1 &minus; Produkt(1 &minus; p<sub>i</sub>)</code> kombiniert, damit die Summe nie über 100% steigen kann.
-          Das ist ein vereinfachtes Modell zur <strong>Priorisierung</strong>, keine Garantie &ndash; reale Ergebnisse
-          hängen von Shop, Zielgruppe und Umsetzung ab und Effekte überschneiden sich in der Praxis oft.
+          Grundlage ist die Branchen-Abbruchrate (Quellen: Statista 2026, Stripe 2026, Dynamic Yield).
+          Vom abgebrochenen Warenkorbwert werden zunächst <strong>43%</strong> abgezogen &ndash; das ist der
+          Anteil der Abbrecher, die laut Stripe ausschließlich recherchieren und sich nicht durch bessere
+          Checkout-Gestaltung gewinnen lassen. Auf den verbleibenden, adressierbaren Verlust wird der
+          Wirkungsgrad der gefundenen Lücken angewendet: Jedem Kriterium ist ein Uplift-Richtwert
+          zugeordnet, kombiniert über <code>1 &minus; Produkt(1 &minus; p<sub>i</sub>)</code>, damit die Summe
+          nie über 100% steigt. Das ist ein Modell zur <strong>Priorisierung</strong>, keine Zusage &ndash;
+          reale Ergebnisse hängen von Sortiment, Zielgruppe und Umsetzung ab.
         </p>
 
         <div class="calc-inputs no-print">
           <div class="field">
-            <label for="calc-visitors">Besucher / Monat</label>
-            <input id="calc-visitors" type="number" min="0" inputmode="numeric" placeholder="z. B. 10000" />
-          </div>
-          <div class="field">
-            <label for="calc-cr">Conversion-Rate (%)</label>
-            <input id="calc-cr" type="number" min="0" step="0.1" inputmode="decimal" placeholder="z. B. 2.0" />
+            <label for="calc-carts">Warenkörbe / Monat</label>
+            <input id="calc-carts" type="number" min="0" inputmode="numeric" placeholder="z. B. 1200" />
           </div>
           <div class="field">
             <label for="calc-aov">Ø Bestellwert (€)</label>
             <input id="calc-aov" type="number" min="0" step="1" inputmode="decimal" placeholder="z. B. 60" />
           </div>
         </div>
+        <p class="hint no-print">Warenkörbe/Monat = Anzahl begonnener Bestellungen (in der Shop-Analytics meist als „In den Warenkorb“-Ereignis). Ohne Angabe wird das Potenzial nur als Prozentspanne ausgewiesen.</p>
 
+        <div id="benchmark-box" class="benchmark-box"></div>
         <div id="impact-summary" class="impact-summary"></div>
+        <div id="reasons-box" class="reasons-box"></div>
         <div id="top-findings" class="top-findings"></div>
       </div>
 

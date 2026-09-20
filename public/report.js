@@ -111,24 +111,29 @@ function saveReportMeta() {
   if (saved.author) reportAuthorInput.value = saved.author;
 })();
 
+// Basis für alle €-Angaben ist der adressierbare Abbruchverlust aus der
+// Warenkorbrechnung, nicht der Gesamtumsatz.
 function currentKpis() {
-  const visitors = parseFloat(document.getElementById("calc-visitors").value);
-  const cr = parseFloat(document.getElementById("calc-cr").value);
-  const aov = parseFloat(document.getElementById("calc-aov").value);
-  if (!(visitors > 0 && cr > 0 && aov > 0)) return null;
-  return { visitors, cr, aov, monthlyRevenue: visitors * (cr / 100) * aov };
+  return abandonmentModel();
 }
 
 function upliftText(low, high, kpis) {
   const pct = `${formatPct(low)} – ${formatPct(high)}`;
   if (!kpis) return pct;
-  return `${pct} (${formatEur(kpis.monthlyRevenue * low)} – ${formatEur(kpis.monthlyRevenue * high)} / Monat)`;
+  return `${pct} (${formatEur(kpis.addressable * low)} – ${formatEur(kpis.addressable * high)} / Monat)`;
 }
 
 // ---------- Textbausteine ----------
 
+// Fairness ist eine eigene Risikodimension mit eigenem Abschnitt und zählt
+// nicht zum Score - sie darf deshalb auch nicht im Stärken-/Schwächen-Ranking
+// oder in der Bewertungstabelle auftauchen.
+function scoredCategories(report) {
+  return report.categories.filter((c) => !c.inverted);
+}
+
 function buildSummary(report, domain, kpis, phaseGroups) {
-  const sorted = [...report.categories].sort((a, b) => b.score - a.score);
+  const sorted = [...scoredCategories(report)].sort((a, b) => b.score - a.score);
   const strong = sorted.slice(0, 2).map((c) => c.name);
   const weak = sorted.slice(-2).reverse().map((c) => c.name);
   const impact = report.impact;
@@ -148,9 +153,15 @@ function buildSummary(report, domain, kpis, phaseGroups) {
   );
 
   if (impact.combinedHigh > 0) {
-    parts.push(
-      `Über alle identifizierten Lücken hinweg ergibt sich ein geschätztes Conversion-Potenzial von <strong>${upliftText(impact.combinedLow, impact.combinedHigh, kpis)}</strong>.`
-    );
+    if (kpis) {
+      parts.push(
+        `In der Branche <strong>${escapeHtml(kpis.industry.name)}</strong> werden ${formatPct(kpis.industry.rate)} aller Warenkörbe abgebrochen. Bei den hinterlegten Kennzahlen entspricht das einem abgebrochenen Warenkorbwert von ${formatEur(kpis.lostValue)} pro Monat. Rechnet man die ${formatPct(kpis.researchShare)} heraus, die ausschließlich recherchieren und sich auch durch einen perfekten Checkout nicht gewinnen lassen, verbleibt ein <strong>adressierbarer Verlust von ${formatEur(kpis.addressable)} pro Monat</strong>. Über die identifizierten Lücken sind davon <strong>${upliftText(impact.combinedLow, impact.combinedHigh, kpis)}</strong> erreichbar.`
+      );
+    } else {
+      parts.push(
+        `Über alle identifizierten Lücken hinweg ergibt sich ein geschätzter Wirkungsgrad von <strong>${upliftText(impact.combinedLow, impact.combinedHigh, kpis)}</strong> auf den adressierbaren Abbruchverlust.`
+      );
+    }
   } else {
     parts.push(
       `Alle geprüften Kriterien sind erfüllt – aus dieser Analyse ergibt sich kein weiteres quantifizierbares Potenzial.`
@@ -171,7 +182,7 @@ function buildSummary(report, domain, kpis, phaseGroups) {
 }
 
 function buildStrengths(report) {
-  const passed = report.categories
+  const passed = scoredCategories(report)
     .flatMap((c) => c.findings.filter((f) => f.passed).map((f) => ({ ...f, catName: c.name })))
     .slice(0, 8);
 
@@ -193,7 +204,7 @@ function buildStrengths(report) {
 }
 
 function buildCategoryTable(report) {
-  const rows = report.categories
+  const rows = scoredCategories(report)
     .map((cat) => {
       const band = scoreBand(cat.score);
       return `
@@ -210,7 +221,7 @@ function buildCategoryTable(report) {
 
   // Der Bewertungssatz steht bewusst nur einmal für den schwächsten Bereich
   // statt als Spalte je Zeile - sonst wiederholt sich derselbe Satz mehrfach.
-  const weakest = [...report.categories].sort((a, b) => a.score - b.score)[0];
+  const weakest = [...scoredCategories(report)].sort((a, b) => a.score - b.score)[0];
   const weakestBand = scoreBand(weakest.score);
 
   return `
@@ -295,16 +306,27 @@ function buildBusinessCase(report, phaseGroups, kpis) {
   let kpiBlock;
   if (kpis) {
     kpiBlock = `
-      <p>Grundlage der Hochrechnung sind die hinterlegten Kennzahlen:
-      <strong>${kpis.visitors.toLocaleString("de-DE")} Besucher/Monat</strong>,
-      <strong>${kpis.cr.toLocaleString("de-DE")}% Conversion-Rate</strong> und
-      <strong>${formatEur(kpis.aov)} Ø Bestellwert</strong> –
-      entsprechend rund <strong>${formatEur(kpis.monthlyRevenue)} Umsatz pro Monat</strong>.</p>`;
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Begonnene Bestellungen (Warenkörbe)</td><td class="doc-num">${kpis.carts.toLocaleString("de-DE")} / Monat</td></tr>
+          <tr><td>Abbruchrate ${escapeHtml(kpis.industry.name)}</td><td class="doc-num">${formatPct(kpis.industry.rate)}</td></tr>
+          <tr><td>Abgebrochene Warenkörbe</td><td class="doc-num">${Math.round(kpis.abandonedCarts).toLocaleString("de-DE")} / Monat</td></tr>
+          <tr><td>Ø Bestellwert</td><td class="doc-num">${formatEur(kpis.aov)}</td></tr>
+          <tr><td>Abgebrochener Warenkorbwert</td><td class="doc-num">${formatEur(kpis.lostValue)} / Monat</td></tr>
+          <tr><td class="doc-muted">abzüglich ${formatPct(kpis.researchShare)} reine Rechercheure</td><td class="doc-num doc-muted">− ${formatEur(kpis.lostValue - kpis.addressable)}</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td><strong>Adressierbarer Verlust</strong></td><td class="doc-num"><strong>${formatEur(kpis.addressable)} / Monat</strong></td></tr>
+        </tfoot>
+      </table>
+      <p class="doc-hint">Der Abzug von ${formatPct(kpis.researchShare)} ist bewusst gesetzt: Dieser Anteil
+      der Abbrecher gibt an, ausschließlich zu recherchieren. Diese Nutzer lassen sich auch durch einen
+      perfekten Checkout nicht gewinnen und werden deshalb aus der Rechnung herausgenommen.</p>`;
   } else {
     kpiBlock = `
-      <p class="doc-hint">Für eine Hochrechnung in Euro können im Analyse-Bereich Besucherzahl,
-      Conversion-Rate und durchschnittlicher Bestellwert hinterlegt werden. Ohne diese Angaben
-      wird das Potenzial ausschließlich als Conversion-Spanne ausgewiesen.</p>`;
+      <p class="doc-hint">Für eine Hochrechnung in Euro können im Analyse-Bereich die Branche, die Zahl
+      begonnener Bestellungen pro Monat und der durchschnittliche Bestellwert hinterlegt werden. Ohne
+      diese Angaben wird das Potenzial ausschließlich als Wirkungsgrad-Spanne ausgewiesen.</p>`;
   }
 
   const phaseRows = phaseGroups
@@ -338,6 +360,109 @@ function buildBusinessCase(report, phaseGroups, kpis) {
     </table>
     <p class="doc-hint">Die Phasenwerte addieren sich nicht linear zum Gesamtwert: Überlappende
     Effekte werden über ein multiplikatives Modell zusammengeführt, damit die Summe realistisch bleibt.</p>
+  `;
+}
+
+function buildBenchmark(report) {
+  const industry = report.industry;
+  if (!industry) return "";
+
+  const global = benchmarks ? benchmarks.global : null;
+  const rows = [
+    `<tr><td><strong>${escapeHtml(industry.name)}</strong> <span class="doc-muted doc-small">(Branche des Shops)</span></td><td class="doc-num">${formatPct(industry.rate)}</td><td class="doc-small">${escapeHtml(industry.source || "")}</td></tr>`,
+    global
+      ? `<tr><td>Branchenübergreifender Durchschnitt</td><td class="doc-num">${formatPct(global.rate)}</td><td class="doc-small">Statista 2026</td></tr>`
+      : "",
+    benchmarks
+      ? `<tr><td>Mobile</td><td class="doc-num">${formatPct(benchmarks.devices[0].rate)}</td><td class="doc-small">Dynamic Yield</td></tr>
+         <tr><td>Desktop</td><td class="doc-num">${formatPct(benchmarks.devices[2].rate)}</td><td class="doc-small">Dynamic Yield</td></tr>`
+      : "",
+  ].join("");
+
+  const driver = industry.driver
+    ? `<p>Als Haupttreiber der Abbrüche gilt in dieser Branche: ${escapeHtml(industry.driver)}.</p>`
+    : "";
+
+  return `
+    <p>Von zehn begonnenen Bestellungen werden im Online-Handel im Schnitt nur rund drei
+    abgeschlossen. Die folgende Einordnung zeigt, mit welcher Abbruchrate in diesem Marktsegment
+    zu rechnen ist:</p>
+    <table class="doc-table">
+      <thead><tr><th>Vergleichsgröße</th><th class="doc-num">Abbruchrate</th><th>Quelle</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${driver}
+    <p>Der deutliche Abstand zwischen Mobile und Desktop ist der wichtigste Hinweis für die
+    Priorisierung: Auf dem Smartphone wird häufiger in den Warenkorb gelegt, aber seltener
+    abgeschlossen. Das Mobil-Erlebnis im Checkout verdient deshalb besondere Aufmerksamkeit.</p>
+  `;
+}
+
+function buildReasons(report) {
+  if (!report.reasons) return "";
+
+  const rows = report.reasons
+    .map((r) => {
+      const status =
+        r.openCount === 0
+          ? `<span class="doc-band doc-band-stark">Abgedeckt</span>`
+          : r.openCount === r.totalCount
+          ? `<span class="doc-band doc-band-kritisch">${r.openCount} von ${r.totalCount} offen</span>`
+          : `<span class="doc-band doc-band-ausbaufaehig">${r.openCount} von ${r.totalCount} offen</span>`;
+      const measures = r.open.length
+        ? `<div class="doc-muted doc-small">${escapeHtml(r.open.map((o) => o.measure).join(" · "))}</div>`
+        : "";
+      return `
+        <tr>
+          <td class="doc-num">${formatPct(r.share)}</td>
+          <td><strong>${escapeHtml(r.name)}</strong>${measures}</td>
+          <td>${status}</td>
+        </tr>`;
+    })
+    .join("");
+
+  return `
+    <p>Abbrechende Kundinnen und Kunden nennen in Befragungen immer wieder dieselben Gründe.
+    Die folgende Gegenüberstellung zeigt, wie häufig ein Grund genannt wird und ob der Shop an
+    genau dieser Stelle offene Punkte hat:</p>
+    <table class="doc-table">
+      <thead><tr><th class="doc-num">Nennung</th><th>Abbruchgrund und betroffene Maßnahmen</th><th>Befund</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function buildFairness(report) {
+  const fairness = report.fairness;
+  if (!fairness) return "";
+
+  if (fairness.flagged.length === 0) {
+    return `
+      <p>In den geprüften Seiten wurden <strong>keine Hinweise auf manipulative Gestaltungsmuster</strong>
+      (Dark Patterns) gefunden. Geprüft wurde auf vorausgewählte Zusatzoptionen, spät auftauchende
+      Gebühren, unklare Vertragsverlängerungen und abwertend formulierte Ablehn-Optionen.</p>
+      <p class="doc-hint">Dieser Befund bezieht sich auf die automatisiert auswertbaren Seiteninhalte.
+      Muster, die sich erst im Bestellablauf oder nach dem Kauf zeigen (etwa erschwerte Kündigung),
+      lassen sich nur im manuellen Testkauf beurteilen.</p>`;
+  }
+
+  const items = fairness.flagged
+    .map(
+      (f) => `<li><strong>${escapeHtml(f.label.replace(/^Keine?n? /, "").replace(/^Kein /, ""))}:</strong> ${escapeHtml(f.tip || "")}</li>`
+    )
+    .join("");
+
+  return `
+    <p>Bei der Prüfung sind <strong>${fairness.flagged.length} Punkte</strong> aufgefallen, die auf
+    manipulative Gestaltungsmuster hindeuten können und vor einer Umsetzung weiterer Maßnahmen
+    geklärt werden sollten:</p>
+    <ul class="doc-list">${items}</ul>
+    <p>Solche Muster senken kurzfristig die Abbruchrate, beschädigen aber Vertrauen und Reputation
+    und geraten regulatorisch zunehmend unter Druck. Wir empfehlen ausdrücklich, die Abschlussquote
+    über faire Gestaltung zu steigern und auf Druckmittel zu verzichten.</p>
+    <p class="doc-hint">Diese Befunde sind Prüfaufträge, keine abschließende Feststellung: Sie
+    beruhen auf Textmustern im Seiteninhalt und sollten im manuellen Testkauf verifiziert werden.
+    In den Gesamtscore fließen sie bewusst nicht ein.</p>
   `;
 }
 
@@ -401,50 +526,79 @@ function renderConsultingReport() {
       ${buildSummary(report, domain, kpis, phaseGroups)}
     </section>
 
+    <div class="doc-part">Teil A – Diagnose: Wo verliert der Shop Kunden?</div>
+
     <section class="doc-section">
-      <h2>2. Ausgangslage</h2>
-      <p>Der Shop wurde anhand von 27 Kriterien aus sieben Bereichen geprüft, die jeweils einen
-      belegten Einfluss auf die Kaufentscheidung im Online-Handel haben. Die folgende Übersicht
-      zeigt, wo der Shop heute steht:</p>
+      <h2>2. Marktumfeld und Benchmark</h2>
+      ${buildBenchmark(report)}
+    </section>
+
+    <section class="doc-section">
+      <h2>3. Ausgangslage des Shops</h2>
+      <p>Der Shop wurde anhand von 34 Kriterien geprüft, die jeweils einen belegten Einfluss auf
+      die Kaufentscheidung im Online-Handel haben. Die folgende Übersicht zeigt die sieben
+      bewerteten Bereiche; die Prüfung auf faire Gestaltung folgt in Abschnitt 6 gesondert, da
+      sie eine Risiko- und keine Qualitätsdimension ist.</p>
       ${buildCategoryTable(report)}
     </section>
 
     <section class="doc-section">
-      <h2>3. Was bereits gut funktioniert</h2>
+      <h2>4. Abgleich mit den genannten Abbruchgründen</h2>
+      ${buildReasons(report)}
+    </section>
+
+    <section class="doc-section">
+      <h2>5. Was bereits gut funktioniert</h2>
       ${buildStrengths(report)}
     </section>
 
     <section class="doc-section">
-      <h2>4. Handlungsempfehlungen</h2>
+      <h2>6. Fairness und Transparenz</h2>
+      ${buildFairness(report)}
+    </section>
+
+    <div class="doc-part">Teil B – Intervention: Was sollte konkret geändert werden?</div>
+
+    <section class="doc-section">
+      <h2>7. Handlungsempfehlungen</h2>
       <p>Die identifizierten Lücken sind nach Umsetzungsaufwand in drei Phasen gegliedert und
       innerhalb jeder Phase nach erwarteter Wirkung sortiert. Das Wirkprinzip benennt den
-      verhaltenswissenschaftlichen Mechanismus, auf dem die jeweilige Maßnahme beruht.</p>
+      verhaltensökonomischen Mechanismus nach Kahneman und Thaler, auf dem die jeweilige
+      Maßnahme beruht.</p>
       ${buildPhases(phaseGroups, kpis)}
     </section>
 
     <section class="doc-section">
-      <h2>5. Wirtschaftliche Einordnung</h2>
+      <h2>8. Wirtschaftliche Einordnung</h2>
       ${buildBusinessCase(report, phaseGroups, kpis)}
     </section>
 
     <section class="doc-section">
-      <h2>6. Empfohlenes Vorgehen</h2>
+      <h2>9. Empfohlenes Vorgehen</h2>
       ${buildNextSteps(phaseGroups)}
     </section>
 
     <section class="doc-section doc-method">
-      <h2>7. Methodik und Hinweise</h2>
+      <h2>10. Methodik, Quellen und Grenzen</h2>
       <p>Grundlage ist eine automatisierte Analyse der öffentlich abrufbaren Shop-Seiten. Geprüft wurden:</p>
       <ul class="doc-list">${checkedPages}</ul>
-      <p>Erkannt werden Signale im ausgelieferten Seiteninhalt (Text- und Strukturmuster). Jedem
-      Kriterium ist ein Uplift-Richtwert aus in der CRO- und Verhaltensforschung verbreiteten
-      Größenordnungen zugeordnet; offene Lücken werden multiplikativ zu einem Gesamtpotenzial
-      kombiniert.</p>
-      <p class="doc-hint"><strong>Wichtiger Hinweis:</strong> Die ausgewiesenen Potenziale sind
-      Modellschätzungen zur Priorisierung, keine zugesicherten Ergebnisse. Die tatsächliche Wirkung
-      hängt von Sortiment, Zielgruppe, Wettbewerbsumfeld und der konkreten Umsetzung ab. Inhalte,
-      die sich erst durch Interaktion zeigen (etwa Schritte innerhalb des Checkouts), können
-      automatisiert nur eingeschränkt erfasst werden und sollten ergänzend manuell geprüft werden.</p>
+      <p>Erkannt werden Signale im ausgelieferten Seiteninhalt (Text- und Strukturmuster). Die
+      Bewertungskriterien leiten sich aus den verhaltensökonomischen Prinzipien von Daniel Kahneman
+      (Verlustaversion, System 1/System 2, Framing, Ankereffekt) und Richard Thaler (Default-Effekt,
+      Mental Accounting, Social Proof, Verknappung) ab. Jedem Kriterium ist ein Uplift-Richtwert
+      zugeordnet; offene Lücken werden multiplikativ zu einem Gesamtpotenzial kombiniert.</p>
+      <p><strong>Verwendete Quellen:</strong> Statista, „Online shopping cart abandonment rate
+      worldwide 2006–2026“ (Stand 15.01.2026); Stripe, „Warenkorbabbruch-Statistiken: Raten nach
+      Branche“ (Stand 29.07.2026); Dynamic Yield, „Cart Abandonment Rate Benchmarks“.</p>
+      <p class="doc-hint"><strong>Grenzen dieser Analyse:</strong> Ein automatisierter Check bewertet
+      Muster im ausgelieferten Seiteninhalt, nicht das tatsächliche Erlebnis eines Menschen im
+      Checkout. Schritte, die sich erst durch Interaktion zeigen – der eigentliche Bestellablauf,
+      Zahlungsabwicklung, Kundenservice, Lieferung und Retoure – lassen sich so nicht beurteilen.
+      Diese Auswertung ist deshalb als <strong>strukturierte Vorstufe</strong> zu verstehen: Sie
+      grenzt ein, wo genau ein manueller Testkauf ansetzen sollte, und ersetzt ihn nicht.</p>
+      <p class="doc-hint">Die ausgewiesenen Potenziale sind Modellschätzungen zur Priorisierung,
+      keine zugesicherten Ergebnisse. Die tatsächliche Wirkung hängt von Sortiment, Zielgruppe,
+      Wettbewerbsumfeld und der konkreten Umsetzung ab.</p>
     </section>
   `;
 }

@@ -18,7 +18,7 @@
   </header>
 
   <main>
-    <section class="panel intro">
+    <section class="panel intro no-print">
       <p>
         Cockpit prüft einen Online-Shop anhand eines strukturierten Kriterienkatalogs &mdash;
         wie ein Mystery-Shopping-Testbericht, aber für den Online-Handel. Jede Lücke liefert
@@ -27,7 +27,7 @@
       </p>
     </section>
 
-    <section class="panel form-panel">
+    <section class="panel form-panel no-print">
       <form id="audit-form">
         <div class="field">
           <label for="url-home">Startseite <span class="req">*</span></label>
@@ -46,20 +46,31 @@
       <p class="hint">Hinweis: Bitte nur Shops analysieren, für die du dazu berechtigt bist. Manche Shops blocken automatisierte Abrufe (Bot-Schutz) &ndash; das äußert sich dann als Ladefehler in der Seiten-Übersicht.</p>
     </section>
 
-    <section id="status" class="status hidden"></section>
+    <section id="status" class="status hidden no-print"></section>
 
     <section id="results" class="results hidden">
+      <div id="archive-banner" class="archive-banner hidden no-print"></div>
+
       <div class="panel overview">
-        <div class="score-dial-wrap">
-          <div id="score-dial" class="score-dial">
-            <span id="score-value">--</span>
-          </div>
-          <div class="grade">
-            <span id="grade-note">-</span>
-            <span id="grade-label">&nbsp;</span>
+        <div class="overview-head">
+          <p id="report-meta" class="report-meta"></p>
+          <div class="overview-actions no-print">
+            <button type="button" id="print-btn" class="ghost-btn">Bericht drucken / als PDF speichern</button>
           </div>
         </div>
-        <div id="category-bars" class="category-bars"></div>
+        <div class="overview-body">
+          <div class="score-dial-wrap">
+            <div id="score-dial" class="score-dial">
+              <span id="score-value">--</span>
+            </div>
+            <div class="grade">
+              <span id="grade-note">-</span>
+              <span id="grade-label">&nbsp;</span>
+            </div>
+            <div id="score-delta" class="score-delta"></div>
+          </div>
+          <div id="category-bars" class="category-bars"></div>
+        </div>
       </div>
 
       <div id="category-details" class="category-details"></div>
@@ -69,10 +80,19 @@
         <div id="pages-list" class="pages-list"></div>
       </div>
     </section>
+
+    <section id="history-panel" class="panel history-panel no-print">
+      <div class="history-head">
+        <h2>Verlauf</h2>
+        <button type="button" id="clear-history-btn" class="ghost-btn small">Verlauf löschen</button>
+      </div>
+      <p id="history-empty" class="hint">Noch keine gespeicherten Analysen auf diesem Gerät. Nach einer Analyse erscheint der geprüfte Shop hier mit Score-Verlauf.</p>
+      <div id="history-list" class="history-list"></div>
+    </section>
   </main>
 
-  <footer>
-    <p>Cockpit &mdash; inspiriert von goodFil (Step Up AG, Mystery-Shopping-Methodik) und den Nudge-Ansätzen von Behamics für den Online-Handel. Automatisierte Heuristik, ersetzt keine vollständige UX-/CRO-Analyse.</p>
+  <footer class="no-print">
+    <p>Cockpit &mdash; inspiriert von goodFil (Step Up AG, Mystery-Shopping-Methodik) und den Nudge-Ansätzen von Behamics für den Online-Handel. Automatisierte Heuristik, ersetzt keine vollständige UX-/CRO-Analyse. Der Verlauf wird nur lokal in diesem Browser gespeichert.</p>
   </footer>
 
 <script src="/app.js"></script>

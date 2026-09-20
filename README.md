@@ -36,6 +36,20 @@ Verhaltensprinzip (z. B. „Social Proof“, „Ankereffekt“, „Friktionsredu
 Die Kategorie- und Gesamt-Scores werden wie ein Testbericht als Schulnote (1–6)
 ausgegeben.
 
+## Verlauf & PDF-Export
+
+- **Verlauf:** Jede Analyse wird lokal im Browser (localStorage) unter dem
+  geprüften Domain-Namen gespeichert (bis zu 8 Läufe pro Shop). Im Bereich
+  „Verlauf“ erscheint pro Shop eine Sparkline der Score-Entwicklung sowie die
+  Differenz zum vorherigen Lauf. Ein Klick auf einen früheren Lauf öffnet die
+  Archiv-Ansicht dieses Berichts. Der Verlauf ist geräte-/browserspezifisch
+  und lässt sich über „Verlauf löschen“ jederzeit zurücksetzen.
+- **PDF/Druck-Export:** Der Button „Bericht drucken / als PDF speichern“
+  öffnet den Browser-Druckdialog mit einem eigenen Print-Stylesheet (Formular,
+  Verlauf und Navigation werden ausgeblendet, nur der Testbericht bleibt
+  sichtbar). Auf dem iPhone: Teilen-Symbol im Druckdialog → „In Dateien
+  sichern“ speichert den Bericht als PDF.
+
 ## Nutzung
 
 ```bash

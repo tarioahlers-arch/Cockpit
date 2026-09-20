@@ -67,6 +67,7 @@
           <p id="report-meta" class="report-meta"></p>
           <div class="overview-actions no-print">
             <button type="button" id="open-report-btn" class="accent-btn">Consulting-Report erstellen</button>
+            <button type="button" id="open-guide-btn" class="ghost-btn">Testleitfaden erstellen</button>
             <button type="button" id="print-btn" class="ghost-btn">Audit drucken / als PDF speichern</button>
           </div>
         </div>
@@ -147,6 +148,17 @@
       <article id="report-doc" class="report-doc"></article>
     </section>
 
+    <section id="test-guide" class="consulting-report hidden">
+      <div class="panel report-settings no-print">
+        <p class="hint" style="margin:0;flex:1;min-width:200px">Der Leitfaden übernimmt Auftraggeber und Ersteller aus dem Consulting-Report.</p>
+        <div class="report-settings-actions">
+          <button type="button" id="guide-print-btn" class="accent-btn">Als PDF speichern / drucken</button>
+          <button type="button" id="guide-back-btn" class="ghost-btn">Zurück zur Analyse</button>
+        </div>
+      </div>
+      <article id="guide-doc" class="report-doc"></article>
+    </section>
+
     <section id="history-panel" class="panel history-panel no-print">
       <div class="history-head">
         <h2>Verlauf</h2>
@@ -163,5 +175,6 @@
 
 <script src="/app.js"></script>
 <script src="/report.js"></script>
+<script src="/guide.js"></script>
 </body>
 </html>

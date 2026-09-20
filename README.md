@@ -183,6 +183,29 @@ npm install && npx playwright install chromium
 
 Der Build lädt dann Chromium herunter und dauert entsprechend länger.
 
+## Testleitfaden für den Testkauf
+
+Der automatisierte Check endet dort, wo das eigentliche Mystery Shopping beginnt:
+Zahlung, Lieferung, Retoure und Kundenservice kann er nicht beurteilen. „Testleitfaden
+erstellen“ erzeugt deshalb die Übergabe an die Testperson – ein ausdruckbares Protokoll mit:
+
+- **Auftragsrahmen** mit Schreibfeldern für Testperson, Datum, Geräte und Budget
+- **Vorbereitung** (neutrale Identität, privates Fenster, Zeitmessung, Belege)
+- **Schwerpunkte aus der Vorab-Analyse**: die offenen Punkte, übersetzt in konkrete
+  Beobachtungsaufträge und nach erwarteter Wirkung geordnet. Aus „Gastbestellung fehlt“
+  wird „Ohne Konto bis zur Zahlung durchgehen. Falls das nicht möglich ist: An welcher
+  Stelle wird zur Registrierung gezwungen?“
+- **Verifikation der Fairness-Befunde** – bei Countdown und Knappheit etwa der Auftrag,
+  am Folgetag erneut zu prüfen, ob dieselbe Frist erneut läuft
+- **Testablauf in acht Stationen** entlang der Kaufstrecke, jede mit Handlungsanweisung,
+  Beobachtungspunkten und Notenfeld. Vier Stationen (Kauf, Lieferung, Retoure,
+  Kundenservice) sind ausdrücklich als „nur im Testkauf prüfbar“ markiert.
+- **Abschluss** mit der zentralen Frage, an welcher Stelle ein echter Kunde abgebrochen hätte
+
+Lief die Analyse ohne JavaScript-Rendering, enthält der Leitfaden zusätzlich einen
+Gegenprüfungs-Hinweis: Die gemeldeten Lücken sind dann erst im Browser zu bestätigen,
+bevor sie als Mangel berichtet werden.
+
 ## Nutzung
 
 ```bash

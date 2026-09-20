@@ -39,7 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setTokenState(existing);
     api
       .get("/auth/me")

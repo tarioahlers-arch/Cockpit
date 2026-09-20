@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, apiErrorMessage } from "@/lib/api";
@@ -13,11 +13,17 @@ function VerifyEmailContent() {
   const { updateUser, user } = useAuth();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
+  const requested = useRef(false);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || requested.current) {
       return;
     }
+    // The verification token is single-use server-side; guard against
+    // React's dev-mode double-invocation of effects (StrictMode) firing
+    // this twice, which would otherwise turn a successful verification
+    // into a spurious "token already used" error on the second call.
+    requested.current = true;
     api
       .post("/auth/verify-email", { token })
       .then((res) => {

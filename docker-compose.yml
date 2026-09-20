@@ -1,0 +1,17 @@
+# Local development only: spins up a Postgres instance matching
+# backend/.env.example. The apps themselves run directly on the host
+# (see README "Schnellstart") — this is just the database.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: halpinghand
+      POSTGRES_PASSWORD: halpinghand
+      POSTGRES_DB: halpinghand
+    ports:
+      - "5432:5432"
+    volumes:
+      - halpinghand-pgdata:/var/lib/postgresql/data
+
+volumes:
+  halpinghand-pgdata:

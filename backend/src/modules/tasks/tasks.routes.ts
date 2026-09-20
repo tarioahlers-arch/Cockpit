@@ -45,9 +45,16 @@ tasksRouter.get(
 
     const where = {
       ...(q.categoryId ? { categoryId: q.categoryId } : {}),
-      ...(q.city ? { city: { contains: q.city } } : {}),
+      ...(q.city ? { city: { contains: q.city, mode: "insensitive" as const } } : {}),
       ...(q.status ? { status: q.status as never } : { status: "POSTED" as never }),
-      ...(q.q ? { OR: [{ title: { contains: q.q } }, { description: { contains: q.q } }] } : {}),
+      ...(q.q
+        ? {
+            OR: [
+              { title: { contains: q.q, mode: "insensitive" as const } },
+              { description: { contains: q.q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
       ...(q.minBudget || q.maxBudget
         ? {
             budgetCents: {

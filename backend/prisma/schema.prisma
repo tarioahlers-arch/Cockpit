@@ -3,12 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// SQLite has no native enum support in Prisma, so status fields are plain
-// strings constrained to a fixed set of values at the application layer:
+// Status fields are plain strings (not native Prisma enums) constrained to a
+// fixed set of values at the application layer, kept this way from an earlier
+// SQLite-based dev setup where native enums weren't supported:
 // TaskStatus: POSTED | ASSIGNED | IN_PROGRESS | COMPLETED | CANCELLED
 // ApplicationStatus / InvitationStatus: PENDING | ACCEPTED | DECLINED
 // PaymentStatus: PENDING | PAID | RELEASED | REFUNDED

@@ -1,6 +1,6 @@
 # HalpingHand API-Contract
 
-Backend: Node.js + Express + Prisma (SQLite) + Socket.io. Base URL in Entwicklung: `http://localhost:4000`.
+Backend: Node.js + Express + Prisma (PostgreSQL) + Socket.io. Base URL in Entwicklung: `http://localhost:4000`.
 Alle Antworten sind JSON. Alle Preise sind **Cent-Integer** in EUR (z.B. `6000` = 60,00 €).
 Fehler: `{ "message": string, "details"?: unknown }` mit passendem HTTP-Status (400/401/403/404/409/500).
 

@@ -11,11 +11,13 @@ Basiert auf dem Proposal "Halping Hand Application" (Zenkoders, Okt. 2024).
 ## Projektstruktur
 
 ```
-backend/   Node.js/Express + Prisma (SQLite) + Socket.io + Stripe (Test-Modus) — die API
+backend/   Node.js/Express + Prisma (PostgreSQL) + Socket.io + Stripe (Test-Modus) — die API
 web/       Next.js Web-App (Kund:innen, Helfer:innen, Admin-Panel)
 mobile/    React Native (Expo) App — dieselbe API, iOS/Android
 docs/      API_CONTRACT.md — vollständige REST/WebSocket-Referenz
 ```
+
+Deployment-Anleitung (Vercel + Railway): [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Features
 
@@ -30,13 +32,19 @@ docs/      API_CONTRACT.md — vollständige REST/WebSocket-Referenz
 
 ## Schnellstart
 
+### 0. Datenbank (lokal, per Docker)
+
+```bash
+docker compose up -d   # startet Postgres auf localhost:5432
+```
+
 ### 1. Backend
 
 ```bash
 cd backend
 cp .env.example .env
 npm install
-npx prisma migrate dev --name init   # legt dev.db an
+npx prisma migrate dev --name init   # legt die Tabellen in Postgres an
 npx tsx prisma/seed.ts               # deutsche Kategorien, Städte, Demo-Accounts
 npm run dev                          # http://localhost:4000
 ```
@@ -72,7 +80,7 @@ npx expo start
 
 ## Tech-Stack
 
-- **Backend**: Node.js, Express, TypeScript, Prisma/SQLite, Socket.io, Stripe SDK (Test-Modus), Zod, JWT.
+- **Backend**: Node.js, Express, TypeScript, Prisma/PostgreSQL, Socket.io, Stripe SDK (Test-Modus), Zod, JWT.
 - **Web**: Next.js (App Router), TypeScript, Tailwind CSS, @tanstack/react-query, socket.io-client.
 - **Mobile**: React Native (Expo, TypeScript), React Navigation, @tanstack/react-query, socket.io-client, AsyncStorage.
 
@@ -88,7 +96,7 @@ Vollständige API-Referenz: [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
 
 ## Nächste Schritte für einen echten Launch
 
-1. Von SQLite auf PostgreSQL wechseln (Prisma-Datasource anpassen) für Produktionsbetrieb.
-2. Echten Stripe-Account + Webhooks einrichten, echten E-Mail-Versand (z.B. SES/Postmark) anbinden.
+1. Echten Stripe-Account + Webhooks einrichten, echten E-Mail-Versand (z.B. SES/Postmark) anbinden.
+2. Datei-Uploads von lokaler Festplatte auf Objektspeicher (S3/R2) umstellen (siehe `DEPLOYMENT.md`).
 3. Mobile-App auf einem echten Gerät/Emulator durchtesten.
 4. Impressum/Datenschutz mit echten rechtlichen Inhalten befüllen (DSGVO-Pflichtangaben).

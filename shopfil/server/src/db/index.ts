@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { CRITERIA } from './criteria.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.resolve(__dirname, '../../data');
+// DATA_DIR ueberschreibbar fuer Deployments mit Persistent Disk (z. B. Render),
+// wo die SQLite-Datei auf einem gemounteten, nicht-ephemeren Pfad liegen soll.
+const DATA_DIR = process.env.DATA_DIR || path.resolve(__dirname, '../../data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 export const db = new Database(path.join(DATA_DIR, 'shopfil.db'));

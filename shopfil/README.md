@@ -166,6 +166,38 @@ sie hinter einem TLS-inspizierenden Firmenproxy ausgeführt werden.
 | `BATCH_ANALYZE_DELAY_MS` | Pause zwischen Firmen im Batch-Analyzer | `1000` |
 | `EURONICS_BASE_URL`, `HAGEBAU_BASE_URL`, `EDEKA_BASE_URL`, `TRUSTED_SHOPS_BASE_URL` | Basis-URL je Connector (auch für Tests gegen lokale Fixtures) | die jeweilige echte Domain |
 
+## Deployment auf Render
+
+Ein `Dockerfile` (im Ordner `shopfil/`) baut Server und Frontend in einem
+Image und liefert das gebaute Frontend direkt über den Express-Server aus
+(`STATIC_DIR`) — ein einziger Service, kein CORS-Setup nötig. Passendes
+`render.yaml`-Blueprint liegt im **Repo-Root** (Render erkennt Blueprints nur
+dort), mit `dockerContext`/`dockerfilePath`, die auf `shopfil/` zeigen.
+
+**Deploy per Blueprint:**
+1. Render-Dashboard → **New +** → **Blueprint** → dieses Repository auswählen.
+2. Render liest `render.yaml` und legt den Service `shopfil` automatisch an.
+3. Nach dem ersten Deploy: URL öffnen, testen (`/api/health` sollte `{"ok":true}` liefern).
+
+**Wichtig, bevor ihr deployt:**
+- **Kein Free-Plan.** Persistent Disks (für die SQLite-Datenbank) gibt es bei
+  Render nur auf bezahlten Plänen — `render.yaml` ist daher auf `plan: starter`
+  gesetzt. Ohne Disk würde die Datenbank bei jedem Deploy/Neustart verloren
+  gehen (Free-Web-Services haben ein flüchtiges Dateisystem).
+- **Playwright-Image-Version pinnen.** `server/package.json` pinnt
+  `"playwright"` exakt (kein `^`), und der `Dockerfile`-Basis-Image-Tag
+  (`mcr.microsoft.com/playwright:vX.Y.Z-jammy`) muss dazu passen. Bei einem
+  Versions-Update beides gemeinsam anpassen, sonst fehlt zur Laufzeit der
+  passende Chromium-Build.
+- Die Recherche-Connectors brauchen weiterhin die in der Sandbox nicht
+  verifizierte Live-Anpassung (siehe oben) — das ändert sich durch das
+  Deployment nicht von selbst.
+
+**Ohne Blueprint (manuell):** Web Service anlegen, Environment auf **Docker**
+stellen, Dockerfile-Pfad `shopfil/Dockerfile` und Docker-Context `shopfil`
+setzen, Persistent Disk mit Mount-Pfad `/var/data` hinzufügen und die
+Umgebungsvariable `DATA_DIR=/var/data` setzen.
+
 ## Weiterentwicklungsideen
 
 - Wiederkehrende Audits per Cron automatisch anstoßen (z. B. wöchentlich)

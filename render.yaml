@@ -1,0 +1,23 @@
+# Render Blueprint fuer ShopFil (liegt in shopfil/, unabhaengig von der
+# uebrigen App in diesem Repo - siehe shopfil/README.md).
+#
+# Deploy: Render Dashboard -> New + -> Blueprint -> dieses Repo auswaehlen.
+# Erfordert einen bezahlten Plan (hier "starter"), da Persistent Disks auf
+# dem Free-Plan nicht unterstuetzt werden - ohne Disk wuerde die SQLite-
+# Datenbank bei jedem Deploy/Neustart verloren gehen.
+services:
+  - type: web
+    name: shopfil
+    env: docker
+    plan: starter
+    dockerfilePath: ./shopfil/Dockerfile
+    dockerContext: ./shopfil
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: shopfil-data
+      mountPath: /var/data
+      sizeGB: 1

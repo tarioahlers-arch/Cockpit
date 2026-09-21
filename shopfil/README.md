@@ -174,28 +174,39 @@ Image und liefert das gebaute Frontend direkt über den Express-Server aus
 `render.yaml`-Blueprint liegt im **Repo-Root** (Render erkennt Blueprints nur
 dort), mit `dockerContext`/`dockerfilePath`, die auf `shopfil/` zeigen.
 
-**Deploy per Blueprint:**
+**Deploy per Blueprint (kostenlos, keine Kreditkarte nötig):**
 1. Render-Dashboard → **New +** → **Blueprint** → dieses Repository auswählen.
-2. Render liest `render.yaml` und legt den Service `shopfil` automatisch an.
+2. Render liest `render.yaml` und legt den Service `shopfil` auf dem **Free-Plan** an (Render unterstützt Docker-Web-Services auch kostenlos).
 3. Nach dem ersten Deploy: URL öffnen, testen (`/api/health` sollte `{"ok":true}` liefern).
 
-**Wichtig, bevor ihr deployt:**
-- **Kein Free-Plan.** Persistent Disks (für die SQLite-Datenbank) gibt es bei
-  Render nur auf bezahlten Plänen — `render.yaml` ist daher auf `plan: starter`
-  gesetzt. Ohne Disk würde die Datenbank bei jedem Deploy/Neustart verloren
-  gehen (Free-Web-Services haben ein flüchtiges Dateisystem).
+**Trade-off des Free-Plans:** Render hat dort keine Persistent Disks. Der
+Service schläft nach ca. 15 Minuten Inaktivität ein und startet beim
+nächsten Aufruf als frischer Container neu — die SQLite-Datenbank setzt
+sich dabei jedes Mal auf den Kriterienkatalog zurück (angelegte Shops/
+Firmen/Audits gehen verloren). Zum kostenlosen Ausprobieren/Zeigen der App
+ist das meist unproblematisch; für dauerhaft gespeicherte Daten siehe unten.
+
+**Persistente Daten (kostet Geld):** In `render.yaml` `plan: free` durch
+z. B. `plan: starter` ersetzen und die auskommentierten `envVars`-/`disk`-
+Zeilen am Ende der Datei aktivieren (Persistent Disk unter `/var/data`,
+`DATA_DIR=/var/data`).
+
+**Weitere Hinweise:**
 - **Playwright-Image-Version pinnen.** `server/package.json` pinnt
   `"playwright"` exakt (kein `^`), und der `Dockerfile`-Basis-Image-Tag
   (`mcr.microsoft.com/playwright:vX.Y.Z-jammy`) muss dazu passen. Bei einem
   Versions-Update beides gemeinsam anpassen, sonst fehlt zur Laufzeit der
   passende Chromium-Build.
+- 512 MB RAM (Free-Plan) reichen für einzelne, kurze Scans mit headless
+  Chromium — bei mehreren parallelen Testkäufen kann es eng werden.
 - Die Recherche-Connectors brauchen weiterhin die in der Sandbox nicht
   verifizierte Live-Anpassung (siehe oben) — das ändert sich durch das
   Deployment nicht von selbst.
 
 **Ohne Blueprint (manuell):** Web Service anlegen, Environment auf **Docker**
 stellen, Dockerfile-Pfad `shopfil/Dockerfile` und Docker-Context `shopfil`
-setzen, Persistent Disk mit Mount-Pfad `/var/data` hinzufügen und die
+setzen. Für persistente Daten zusätzlich einen bezahlten Plan wählen,
+Persistent Disk mit Mount-Pfad `/var/data` hinzufügen und die
 Umgebungsvariable `DATA_DIR=/var/data` setzen.
 
 ## Weiterentwicklungsideen

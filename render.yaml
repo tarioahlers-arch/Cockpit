@@ -2,22 +2,35 @@
 # uebrigen App in diesem Repo - siehe shopfil/README.md).
 #
 # Deploy: Render Dashboard -> New + -> Blueprint -> dieses Repo auswaehlen.
-# Erfordert einen bezahlten Plan (hier "starter"), da Persistent Disks auf
-# dem Free-Plan nicht unterstuetzt werden - ohne Disk wuerde die SQLite-
-# Datenbank bei jedem Deploy/Neustart verloren gehen.
+#
+# Standardmaessig auf plan: free gestellt - kostenlos, keine Kreditkarte
+# noetig, Render unterstuetzt Docker-Web-Services auch auf dem Free-Plan.
+# Trade-off: keine Persistent Disk auf dem Free-Plan, d. h. die SQLite-
+# Datenbank setzt sich zurueck, sobald der Service nach ca. 15 Minuten
+# Inaktivitaet einschlaeft und beim naechsten Aufruf neu startet (auch beim
+# Redeploy). Fuer ein kostenloses Ausprobieren/Zeigen der App ist das meist
+# unproblematisch. Fuer dauerhaft gespeicherte Daten: siehe Abschnitt
+# "Persistente Daten" unten.
 services:
   - type: web
     name: shopfil
     env: docker
-    plan: starter
+    plan: free
     dockerfilePath: ./shopfil/Dockerfile
     dockerContext: ./shopfil
     envVars:
-      - key: DATA_DIR
-        value: /var/data
       - key: NODE_ENV
         value: production
-    disk:
-      name: shopfil-data
-      mountPath: /var/data
-      sizeGB: 1
+
+# --- Persistente Daten (optional, kostet Geld) ---
+# Damit die Datenbank Neustarts uebersteht, braucht es einen bezahlten Plan
+# mit Persistent Disk. Dafuer oben "plan: free" ersetzen (z. B. "starter")
+# und diese Zeilen in den Service-Block einfuegen:
+#
+#     envVars:
+#       - key: DATA_DIR
+#         value: /var/data
+#     disk:
+#       name: shopfil-data
+#       mountPath: /var/data
+#       sizeGB: 1

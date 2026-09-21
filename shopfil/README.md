@@ -135,7 +135,12 @@ echten Seiten prüfen und anpassen.
 
 ## Setup
 
+Dieses Projekt liegt im Unterordner `shopfil/`, unabhängig von den anderen
+Anwendungen in diesem Repository — Befehle unten immer aus `shopfil/` heraus
+ausführen.
+
 ```bash
+cd shopfil
 npm install
 
 # Terminal 1: API auf http://localhost:4000

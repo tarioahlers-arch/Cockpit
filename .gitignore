@@ -1,5 +1,12 @@
 node_modules/
 dist/
-*.log
+build/
+.next/
+.expo/
 .env
+.env.local
+*.log
+
+backend/uploads/
+
 .DS_Store

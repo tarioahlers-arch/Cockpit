@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Status fields are plain strings (not native Prisma enums) constrained to a
+// fixed set of values at the application layer, kept this way from an earlier
+// SQLite-based dev setup where native enums weren't supported:
+// TaskStatus: POSTED | ASSIGNED | IN_PROGRESS | COMPLETED | CANCELLED
+// ApplicationStatus / InvitationStatus: PENDING | ACCEPTED | DECLINED
+// PaymentStatus: PENDING | PAID | RELEASED | REFUNDED
+// SupportStatus: OPEN | IN_PROGRESS | CLOSED
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  phone              String?
+  city               String?
+  avatarUrl          String?
+  bio                String?
+  hourlyRate         Int? // cents, EUR
+  radiusKm           Int?
+  emailVerified      Boolean  @default(false)
+  verificationToken  String?
+  isTaskerOnboarded  Boolean  @default(false)
+  isAdmin            Boolean  @default(false)
+  isBlocked          Boolean  @default(false)
+  stripeAccountId    String?
+  stripeCustomerId   String?
+  ratingAvg          Float    @default(0)
+  ratingCount        Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  skills             TaskerSkill[]
+  postedTasks        Task[]              @relation("PostedTasks")
+  assignedTasks      Task[]              @relation("AssignedTasks")
+  applications       TaskApplication[]
+  invitationsRecv    TaskInvitation[]
+  messagesSent       Message[]
+  reviewsGiven       Review[]            @relation("ReviewsGiven")
+  reviewsReceived    Review[]            @relation("ReviewsReceived")
+  notifications      Notification[]
+  supportTickets     SupportTicket[]
+  reportsMade        Report[]            @relation("ReportsMade")
+  reportsReceived    Report[]            @relation("ReportsReceived")
+  conversationsAsC   Conversation[]      @relation("ConversationCustomer")
+  conversationsAsT   Conversation[]      @relation("ConversationTasker")
+}
+
+model Category {
+  id    String  @id @default(uuid())
+  name  String  @unique
+  icon  String?
+  tasks Task[]
+  skills TaskerSkill[]
+}
+
+model TaskerSkill {
+  id         String   @id @default(uuid())
+  userId     String
+  categoryId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+}
+
+model Task {
+  id               String     @id @default(uuid())
+  title            String
+  description      String
+  categoryId       String
+  category         Category   @relation(fields: [categoryId], references: [id])
+  city             String
+  address          String?
+  budgetCents      Int
+  currency         String     @default("EUR")
+  status           String     @default("POSTED")
+  posterId         String
+  poster           User       @relation("PostedTasks", fields: [posterId], references: [id])
+  assignedTaskerId String?
+  assignedTasker   User?      @relation("AssignedTasks", fields: [assignedTaskerId], references: [id])
+  scheduledAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  applications  TaskApplication[]
+  invitations   TaskInvitation[]
+  conversations Conversation[]
+  reviews       Review[]
+  payments      Payment[]
+}
+
+model TaskApplication {
+  id            String            @id @default(uuid())
+  taskId        String
+  task          Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskerId      String
+  tasker        User              @relation(fields: [taskerId], references: [id], onDelete: Cascade)
+  message       String?
+  proposedCents Int?
+  status        String            @default("PENDING")
+  createdAt     DateTime          @default(now())
+
+  @@unique([taskId, taskerId])
+}
+
+model TaskInvitation {
+  id        String           @id @default(uuid())
+  taskId    String
+  task      Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskerId  String
+  tasker    User             @relation(fields: [taskerId], references: [id], onDelete: Cascade)
+  status    String           @default("PENDING")
+  createdAt DateTime         @default(now())
+
+  @@unique([taskId, taskerId])
+}
+
+model Conversation {
+  id         String    @id @default(uuid())
+  taskId     String
+  task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User      @relation("ConversationCustomer", fields: [customerId], references: [id])
+  taskerId   String
+  tasker     User      @relation("ConversationTasker", fields: [taskerId], references: [id])
+  createdAt  DateTime  @default(now())
+  messages   Message[]
+
+  @@unique([taskId, taskerId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  text           String?
+  attachmentUrl  String?
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+}
+
+model Review {
+  id           String   @id @default(uuid())
+  taskId       String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewerId   String
+  reviewer     User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  revieweeId   String
+  reviewee     User     @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  rating       Int
+  comment      String?
+  isAnonymous  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@unique([taskId, reviewerId])
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  taskId                String
+  task                  Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  amountCents           Int
+  platformFeeCents      Int
+  currency              String        @default("EUR")
+  status                String        @default("PENDING")
+  stripePaymentIntentId String?
+  stripeTransferId      String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        String         @id @default(uuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  message   String
+  status    String         @default("OPEN")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model Report {
+  id             String   @id @default(uuid())
+  reporterId     String
+  reporter       User     @relation("ReportsMade", fields: [reporterId], references: [id])
+  reportedUserId String
+  reportedUser   User     @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+  reason         String
+  createdAt      DateTime @default(now())
+}

@@ -193,3 +193,86 @@ a:hover { text-decoration: underline; }
   color: var(--muted);
   margin-top: -4px;
 }
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.tab-link {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+.tab-link.active {
+  background: var(--panel);
+  border-color: var(--panel-border);
+  color: var(--text);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  vertical-align: top;
+}
+.data-table tr:last-child td { border-bottom: none; }
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge.unverified { background: #3a3320; color: var(--warn); }
+.badge.verified { background: #133a2c; color: var(--good); }
+.badge.status-neu { background: #1c2947; color: #9db4f0; }
+.badge.status-analysiert { background: #2a2647; color: #c3b4f0; }
+.badge.status-qualifiziert { background: #133a2c; color: var(--good); }
+.badge.status-abgelehnt { background: #3a1420; color: var(--bad); }
+
+.select-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.log-entry {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-entry.gefunden { background: #10241b; color: #8fe0b8; }
+.log-entry.duplikat { background: #241f10; color: #e0c98f; }
+.log-entry.kein_shop_erkannt { background: #1a1a24; color: var(--muted); }
+.log-entry.robots_disallow { background: #241a10; color: #e0a98f; }
+.log-entry.fehler { background: #2a1418; color: #e08f95; }
+.log-entry .log-type {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}

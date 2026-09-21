@@ -1,5 +1,4 @@
-import { chromium } from 'playwright';
-import fs from 'node:fs';
+import { launchBrowser, isProxied, AUDITBOT_USER_AGENT } from '../browser.js';
 import {
   CHAT_PATTERNS,
   CONTACT_PATTERNS,
@@ -38,25 +37,6 @@ function scoreLoadTime(ms: number): ScanResult {
   return { score, passed: score >= 70, detail: `Ladezeit: ${ms} ms` };
 }
 
-// In dieser Umgebung ist Chromium bereits unter /opt/pw-browsers vorinstalliert,
-// ggf. in einer anderen Build-Nummer als von der installierten Playwright-Version
-// erwartet. PLAYWRIGHT_CHROMIUM_PATH erlaubt ein explizites Override, sonst wird
-// die vorinstallierte Chromium-Version automatisch gefunden.
-function findPreinstalledChromium(): string | undefined {
-  const base = '/opt/pw-browsers';
-  if (!fs.existsSync(base)) return undefined;
-  const candidate = fs
-    .readdirSync(base)
-    .filter((entry) => entry.startsWith('chromium-'))
-    .sort()
-    .reverse()
-    .map((entry) => `${base}/${entry}/chrome-linux/chrome`)
-    .find((p) => fs.existsSync(p));
-  return candidate;
-}
-
-const CHROMIUM_EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM_PATH || findPreinstalledChromium();
-
 /**
  * Fuehrt die automatisierten ShopFil-Checks gegen eine Shop-URL (und optional
  * eine Produktseite) aus. Wirft bei nicht erreichbarer Startseite, damit der
@@ -66,22 +46,13 @@ export async function runAutomatedScan(
   shopUrl: string,
   productUrl?: string | null,
 ): Promise<Record<string, ScanResult>> {
-  // Respektiert einen ggf. gesetzten Unternehmens-/Sandbox-Proxy (HTTPS_PROXY/HTTP_PROXY),
-  // z. B. wenn der Audit hinter einem TLS-inspizierenden Firmenproxy laeuft.
-  const proxyServer = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
-  const proxyBypass = process.env.NO_PROXY || process.env.no_proxy || 'localhost,127.0.0.1';
-
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath: CHROMIUM_EXECUTABLE || undefined,
-    proxy: proxyServer ? { server: proxyServer, bypass: proxyBypass } : undefined,
-  });
+  const browser = await launchBrowser();
 
   try {
     const context = await browser.newContext({
-      userAgent: 'ShopFil-Auditbot/1.0 (+digitales Testkauf-Cockpit)',
+      userAgent: AUDITBOT_USER_AGENT,
       viewport: { width: 1366, height: 900 },
-      ignoreHTTPSErrors: !!proxyServer,
+      ignoreHTTPSErrors: isProxied(),
     });
     const page = await context.newPage();
 

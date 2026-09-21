@@ -16,8 +16,14 @@ services:
     name: shopfil
     env: docker
     plan: free
-    dockerfilePath: ./shopfil/Dockerfile
     dockerContext: ./shopfil
+    # dockerfilePath bewusst weggelassen: Render loest ihn relativ zu
+    # dockerContext auf (nicht relativ zum Repo-Root, trotz anderslautender
+    # Doku) und erwartet damit ohnehin den Default "./Dockerfile" - unsere
+    # Datei liegt genau dort (shopfil/Dockerfile). Ein zusaetzlich gesetzter
+    # Pfad wie "./shopfil/Dockerfile" fuehrte zu einem doppelten, kaputten
+    # Pfad und dem Build-Fehler "failed to read dockerfile: open D: no such
+    # file or directory".
     envVars:
       - key: NODE_ENV
         value: production

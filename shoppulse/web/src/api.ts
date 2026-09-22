@@ -93,6 +93,17 @@ export interface Experiment {
   config: Record<string, unknown>;
   status: 'draft' | 'running' | 'stopped';
   traffic_split: number;
+  target_segments: string[] | null;
+  swarm: {
+    shops: number;
+    priorLift: number;
+    priorInterval: [number, number];
+    probPositive: number;
+    ownWeight: number;
+    posteriorLift: number;
+    earlyDecision: 'winner' | 'loser' | null;
+    text: string;
+  } | null;
   created_at: string;
   started_at: string | null;
   stopped_at: string | null;
@@ -240,10 +251,33 @@ export interface AutopilotData {
   settings: { enabled: number; mode: 'suggest' | 'auto'; holdout_share: number; allowed_nudges: NudgeType[]; last_run_at: string | null; updated_at: string | null };
   availableNudges: NudgeType[];
   log: { id: number; action: string; title: string; reason: string; created_at: string; undone_at: string | null; experiment_id: number | null; rollout_id: number | null; undoable: number }[];
-  rollouts: { id: number; nudge_type: string; page_type: string; active: number; started_at: string; ended_at: string | null }[];
+  rollouts: { id: number; nudge_type: string; page_type: string; active: number; started_at: string; ended_at: string | null; target_segments: string | null }[];
   runningTest: { id: number; name: string; nudge_type: string; status: string; started_at: string | null } | null;
   upliftMonthToDate: UpliftReport;
 }
+
+export interface SwarmData {
+  participating: boolean;
+  minShops: number;
+  niche: string;
+  network: { niche: string; shopsInNiche: number; shopsTotal: number };
+  contributions: number;
+  benchmarks: {
+    niche: string;
+    shops: number;
+    available: boolean;
+    metrics: { key: string; label: string; format: 'pct' | 'eur'; higherIsBetter: boolean; own: number; p25: number; median: number; p75: number; percentile: number }[];
+  } | null;
+  evidence: { nudgeType: string; cells: { segment: string; label: string; available: boolean; lift: number | null; interval: [number, number] | null; shops: number }[] }[] | null;
+}
+
+export const SEGMENT_LABEL: Record<string, string> = {
+  price_sensitive: 'Preissensibel',
+  convenience: 'Bequemlichkeitsorientiert',
+  hesitant: 'Zögernd',
+  explorer: 'Stöbernd',
+  undetermined: 'Noch unklar',
+};
 
 export interface AiStatus {
   configured: boolean;
@@ -343,6 +377,10 @@ export const api = {
   runAutopilot: (shopId: number) => post<{ ran: boolean; message: string; actions: { action: string; title: string }[] }>(`/shops/${shopId}/autopilot/run`, {}),
   undoAutopilot: (logId: number) => post<{ ok: true }>(`/autopilot/log/${logId}/undo`, {}),
   uplift: (shopId: number, month: string) => request<UpliftReport>(`/shops/${shopId}/uplift?month=${month}`),
+  swarm: (shopId: number) => request<SwarmData>(`/shops/${shopId}/swarm`),
+  setSwarm: (shopId: number, participate: boolean) =>
+    request<{ ok: true; removed?: number }>(`/shops/${shopId}/swarm`, { method: 'PUT', body: JSON.stringify({ participate }) }),
+  setRolloutSegments: (id: number, segments: string[] | null) => patch<{ ok: true }>(`/rollouts/${id}`, { segments }),
   aiStatus: () => request<AiStatus>('/ai/status'),
   ask: (shopId: number, question: string, history: { role: 'user' | 'assistant'; content: string }[]) =>
     post<AdvisorAnswer>(`/shops/${shopId}/advisor`, { question, history }),

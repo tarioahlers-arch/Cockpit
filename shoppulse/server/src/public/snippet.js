@@ -251,8 +251,11 @@
       return; // Kontrollgruppe: keine Tests, keine ausgerollten Nudges
     }
     // Ausgerollte Gewinner gelten fuer alle uebrigen Besucher:innen
-    (cfg.rollouts || []).forEach(function (r) { renderInto(r, page); });
-    applyExperiments(cfg.experiments || []);
+    var segment = cfg.segment || 'undetermined';
+    // Segment-Targeting: nur Nudges, die fuer das Segment dieser Besucherin/dieses Besuchers gelten
+    var eligible = function (item) { return !item.segments || item.segments.indexOf(segment) !== -1; };
+    (cfg.rollouts || []).filter(eligible).forEach(function (r) { renderInto(r, page); });
+    applyExperiments((cfg.experiments || []).filter(eligible));
   }
 
   function applyExperiments(experiments) {
@@ -272,7 +275,7 @@
   function loadExperiments() {
     var page = pageData();
     var qs = '?key=' + encodeURIComponent(KEY) + '&pageType=' + encodeURIComponent(page.pageType) +
-      (page.sku ? '&sku=' + encodeURIComponent(page.sku) : '');
+      (page.sku ? '&sku=' + encodeURIComponent(page.sku) : '') + '&visitor=' + encodeURIComponent(visitorId);
     fetch(ENDPOINT + '/api/public/config' + qs)
       .then(function (r) { return r.ok ? r.json() : { experiments: [] }; })
       .then(function (cfg) { applyConfig(cfg); })

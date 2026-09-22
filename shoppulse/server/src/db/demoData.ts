@@ -266,6 +266,8 @@ export function createDemoShop(orgId: number): ShopRow {
   });
   run();
   seedInventory(shopId);
+  db.prepare('UPDATE shops SET swarm_opt_in = 1, swarm_token = ? WHERE id = ?').run(crypto.randomBytes(16).toString('hex'), shopId);
+  seedDemoNetwork();
   return getShop(shopId)!;
 }
 
@@ -328,4 +330,71 @@ function seedInventory(shopId: number) {
     'snapshot',
   );
   recordPush(posId, pos);
+}
+
+// ---------------------------------------------------------------------------
+// Simuliertes Schwarm-Netzwerk (nur fuer Demo-Shops sichtbar: is_demo = 1)
+// ---------------------------------------------------------------------------
+
+/** Wahre relative Effekte je Nudge und Segment im simulierten Netzwerk (Mode-Branche). */
+const NETWORK_EFFECTS: Record<string, Record<string, number>> = {
+  social_proof: { all: 0.12, hesitant: 0.3, explorer: 0.1, price_sensitive: -0.04, convenience: 0.0 },
+  scarcity: { all: 0.06, convenience: 0.1, hesitant: 0.08, price_sensitive: 0.02, explorer: -0.12 },
+  anchoring: { all: 0.04, price_sensitive: 0.15, convenience: -0.04, hesitant: 0.0, explorer: 0.01 },
+};
+const SEGMENT_SHARE: Record<string, number> = { hesitant: 0.14, explorer: 0.22, price_sensitive: 0.25, convenience: 0.1 };
+
+/** Legt das Demo-Netzwerk einmalig an (Mode: 24 Shops, Elektronik: 8, B2B: 3 – B2B bleibt unter der Mindestanzahl). */
+export function seedDemoNetwork() {
+  if (db.prepare('SELECT 1 FROM swarm_benchmarks WHERE is_demo = 1 LIMIT 1').get()) return;
+  const r = rng(7);
+  const normal = () => Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r());
+  const binom = (n: number, p: number) => Math.max(0, Math.round(n * p + normal() * Math.sqrt(n * p * (1 - p))));
+  const month = new Date().toISOString().slice(0, 7);
+  const insResult = db.prepare(
+    `INSERT INTO swarm_results (source_hash, is_demo, niche, nudge_type, segment, control_visitors, control_conversions, treatment_visitors, treatment_conversions, month)
+     VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const insBench = db.prepare(
+    `INSERT INTO swarm_benchmarks (source_hash, is_demo, niche, month, sessions, conversion_rate, average_order_value, cart_abandonment_rate,
+       checkout_abandonment_rate, hesitation_rate, segment_shares) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const niches: [string, number, number, number][] = [
+    // Branche, Shops, typische Conversion, typischer Bestellwert
+    ['mode', 24, 0.035, 85],
+    ['elektronik', 8, 0.022, 210],
+    ['b2b', 3, 0.05, 420],
+  ];
+  db.transaction(() => {
+    for (const [niche, count, baseCr, aov] of niches) {
+      for (let i = 0; i < count; i++) {
+        const hash = crypto.createHash('sha256').update(`demo-network:${niche}:${i}`).digest('hex');
+        const cr = Math.max(0.005, baseCr * (1 + 0.35 * normal()));
+        insBench.run(
+          hash,
+          niche,
+          month,
+          Math.round(8000 + r() * 60000),
+          cr,
+          Math.round(aov * (1 + 0.25 * normal()) * 100) / 100,
+          Math.min(0.92, Math.max(0.5, 0.7 + 0.07 * normal())),
+          Math.min(0.8, Math.max(0.2, 0.42 + 0.08 * normal())),
+          Math.min(0.6, Math.max(0.1, 0.3 + 0.07 * normal())),
+          JSON.stringify(SEGMENT_SHARE),
+        );
+        // Jeder Shop hat 1–3 der Nudges getestet
+        for (const [nudge, effects] of Object.entries(NETWORK_EFFECTS)) {
+          if (r() < 0.35) continue;
+          const shopEffect = 0.04 * normal(); // Streuung zwischen Shops
+          for (const [segment, lift] of Object.entries(effects)) {
+            const n = Math.round((segment === 'all' ? 12000 : 12000 * (SEGMENT_SHARE[segment] ?? 0.2)) * (0.6 + r()));
+            const segCr = segment === 'hesitant' ? cr * 0.8 : segment === 'convenience' ? cr * 3 : segment === 'explorer' ? cr * 0.5 : cr;
+            const pc = Math.min(0.9, segCr);
+            const pt = Math.min(0.95, pc * (1 + lift + shopEffect));
+            insResult.run(hash, niche, nudge, segment, n, binom(n, pc), n, binom(n, pt), month);
+          }
+        }
+      }
+    }
+  })();
 }

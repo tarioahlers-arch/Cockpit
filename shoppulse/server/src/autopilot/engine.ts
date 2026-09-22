@@ -2,6 +2,8 @@ import { db, recentEvents, type ExperimentRow, type ShopRow } from '../db/index.
 import { analyzeExperiment } from '../analytics/experiments.js';
 import { NUDGES, isNudgeType, type NudgeType } from '../analytics/nudges.js';
 import { computeOverview } from '../services/overview.js';
+import { SEGMENTS, type SegmentKey } from '../analytics/segmentation.js';
+import { assessExperiment, contributePending, getPrior, targetSegmentsForNewTest, targetSegmentsForRollout } from '../swarm/swarm.js';
 
 /**
  * Growth-Autopilot: fuehrt den Kreislauf Empfehlung -> Test -> Auswertung -> Rollout selbststaendig.
@@ -96,6 +98,10 @@ export function runAutopilot(shop: ShopRow): RunResult {
   for (const exp of running) {
     const since = exp.started_at ?? exp.created_at;
     const a = analyzeExperiment(exp, recentEvents(shop.id, 90).filter((e) => e.ts >= since));
+    // Schwarmwissen: fruehere Entscheidung, wenn eigene Daten und Netzwerk uebereinstimmen
+    const swarm = a.verdict === 'collecting' ? assessExperiment(shop, exp, a) : null;
+    const verdict = swarm?.earlyDecision ?? a.verdict;
+    const early = !!swarm?.earlyDecision;
     const stop = () =>
       db.prepare(`UPDATE experiments SET status = 'stopped', stopped_at = datetime('now') WHERE id = ?`).run(exp.id);
     const label = NUDGES[exp.nudge_type as NudgeType]?.label ?? exp.nudge_type;
@@ -110,27 +116,34 @@ export function runAutopilot(shop: ShopRow): RunResult {
       act('guardrail_stop', `Sicherheitsstopp: ${exp.name}`, `Variante B kostet signifikant Conversion (${a.headline}). Test sofort beendet, nichts ausgerollt.`, {
         experimentId: exp.id,
       });
-    } else if (a.verdict === 'winner') {
+    } else if (verdict === 'winner') {
       stop();
       const exists = db
         .prepare('SELECT id FROM nudge_rollouts WHERE shop_id = ? AND nudge_type = ? AND page_type = ? AND active = 1')
         .get(shop.id, exp.nudge_type, exp.page_type) as { id: number } | undefined;
+      // Segment-Targeting: nur dort ausspielen, wo der Nudge nachweislich nicht schadet
+      const testSegments = exp.target_segments ? (JSON.parse(exp.target_segments) as string[]) : null;
+      const target = targetSegmentsForRollout(shop, exp, a);
+      const segments = testSegments ?? target.segments;
       const rolloutId =
         exists?.id ??
         Number(
           db
-            .prepare('INSERT INTO nudge_rollouts (shop_id, nudge_type, page_type, config, source_experiment_id) VALUES (?, ?, ?, ?, ?)')
-            .run(shop.id, exp.nudge_type, exp.page_type, exp.config, exp.id).lastInsertRowid,
+            .prepare('INSERT INTO nudge_rollouts (shop_id, nudge_type, page_type, config, source_experiment_id, target_segments) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(shop.id, exp.nudge_type, exp.page_type, exp.config, exp.id, segments ? JSON.stringify(segments) : null).lastInsertRowid,
         );
+      const scope = segments
+        ? `Ausgespielt nur für: ${segments.map((k) => SEGMENTS[k as SegmentKey]?.label ?? k).join(', ')}.${target.reasons.length ? ' Ausgenommen – ' + target.reasons.join('; ') + '.' : ''}`
+        : 'Der Nudge gilt für alle Besucher:innen außer der Kontrollgruppe.';
       act(
         'rollout',
-        `Gewinner ausgerollt: ${label}`,
-        `${a.headline} Der Nudge gilt ab sofort für alle Besucher:innen außer der Kontrollgruppe. Die Wirkung wird im Uplift-Nachweis weiter gemessen.`,
+        `Gewinner ausgerollt: ${label}${early ? ' (mit Schwarmwissen früher entschieden)' : ''}`,
+        `${early ? 'Schwarmwissen: ' + swarm!.text : a.headline} ${scope} Die Wirkung wird im Uplift-Nachweis weiter gemessen.`,
         { experimentId: exp.id, rolloutId },
       );
-    } else if (a.verdict === 'loser') {
+    } else if (verdict === 'loser') {
       stop();
-      act('stopped_loser', `Test beendet: ${exp.name}`, `${a.headline} Nicht ausgerollt.`, { experimentId: exp.id });
+      act('stopped_loser', `Test beendet: ${exp.name}`, `${early ? 'Schwarmwissen: ' + swarm!.text + ' ' : a.headline} Nicht ausgerollt.`, { experimentId: exp.id });
     } else if (a.verdict === 'inconclusive') {
       stop();
       act('stopped_inconclusive', `Test ohne Effekt beendet: ${exp.name}`, `${a.headline} Der nächste Test kann starten.`, {
@@ -169,25 +182,54 @@ export function runAutopilot(shop: ShopRow): RunResult {
         blocked.add(r.nudge_type);
       }
       const allowed = allowedNudges(settings);
-      const candidate = overview.recommendations.find(
+      // Kandidaten aus den Empfehlungen; Schwarmwissen sortiert aus, was in vergleichbaren Shops nicht wirkt
+      const skippedBySwarm: string[] = [];
+      const candidates = overview.recommendations.filter(
         (r) => r.nudgeType && allowed.includes(r.nudgeType) && !blocked.has(r.nudgeType) && !r.id.startsWith('rollout-'),
       );
+      const scored = candidates
+        .map((r) => ({ rec: r, prior: getPrior(shop, r.nudgeType!, 'all') }))
+        .filter(({ rec, prior }) => {
+          if (prior && prior.liftInterval[1] <= 0) {
+            skippedBySwarm.push(`${NUDGES[rec.nudgeType!].label} (im Schwarm ${prior.shops} Shops ohne Nutzen)`);
+            return false;
+          }
+          return true;
+        })
+        // Mit Schwarmwissen: erwarteter Effekt gewichtet das Potenzial; ohne: Reihenfolge der Empfehlungen
+        .sort((x, y) => (y.prior ? 1 + y.prior.lift : 1) * y.rec.potentialPerMonth - (x.prior ? 1 + x.prior.lift : 1) * x.rec.potentialPerMonth);
+      const candidate = scored[0]?.rec;
+      const candidatePrior = scored[0]?.prior ?? null;
       if (candidate?.nudgeType) {
         const nudge = NUDGES[candidate.nudgeType];
         const start = settings.mode === 'auto';
+        const target = targetSegmentsForNewTest(shop, candidate.nudgeType);
         const expId = Number(
           db
             .prepare(
-              `INSERT INTO experiments (shop_id, name, nudge_type, page_type, config, status, traffic_split, started_at, created_by_autopilot)
-               VALUES (?, ?, ?, 'product', ?, ?, 0.5, ${start ? "datetime('now')" : 'NULL'}, 1)`,
+              `INSERT INTO experiments (shop_id, name, nudge_type, page_type, config, status, traffic_split, started_at, created_by_autopilot, target_segments)
+               VALUES (?, ?, ?, 'product', ?, ?, 0.5, ${start ? "datetime('now')" : 'NULL'}, 1, ?)`,
             )
-            .run(shop.id, `Autopilot: ${nudge.label}`, candidate.nudgeType, JSON.stringify(nudge.defaultConfig), start ? 'running' : 'draft')
-            .lastInsertRowid,
+            .run(
+              shop.id,
+              `Autopilot: ${nudge.label}`,
+              candidate.nudgeType,
+              JSON.stringify(nudge.defaultConfig),
+              start ? 'running' : 'draft',
+              target.segments ? JSON.stringify(target.segments) : null,
+            ).lastInsertRowid,
         );
+        const swarmNote = candidatePrior
+          ? ` Schwarmwissen: In ${candidatePrior.shops} vergleichbaren Shops im Schnitt ${candidatePrior.lift >= 0 ? '+' : ''}${(candidatePrior.lift * 100).toFixed(1).replace('.', ',')} % Conversion.`
+          : '';
+        const targetNote = target.segments
+          ? ` Getestet nur für: ${target.segments.map((k) => SEGMENTS[k as SegmentKey]?.label ?? k).join(', ')} (${target.reasons.join('; ')}).`
+          : '';
+        const skipNote = skippedBySwarm.length ? ` Übersprungen: ${skippedBySwarm.join(', ')}.` : '';
         act(
           start ? 'test_started' : 'test_proposed',
           start ? `Test gestartet: ${nudge.label}` : `Test vorgeschlagen: ${nudge.label} (wartet auf Freigabe)`,
-          `Grundlage: „${candidate.title}“ – ${candidate.why}`,
+          `Grundlage: „${candidate.title}“ – ${candidate.why}${swarmNote}${targetNote}${skipNote}`,
           { experimentId: expId },
         );
       } else if (!actions.length) {
@@ -199,6 +241,12 @@ export function runAutopilot(shop: ShopRow): RunResult {
   return finish(actions.length ? `${actions.length} Aktion(en) ausgeführt.` : 'Keine Aktion nötig – laufender Test sammelt noch Daten.');
 
   function finish(message: string): RunResult {
+    // Beendete Tests ins Schwarmwissen uebernehmen (nur bei Teilnahme)
+    try {
+      contributePending(db.prepare('SELECT * FROM shops WHERE id = ?').get(shop.id) as ShopRow);
+    } catch (e) {
+      console.error('Schwarmwissen:', e);
+    }
     db.prepare(
       `INSERT INTO autopilot_settings (shop_id, last_run_at) VALUES (?, datetime('now'))
        ON CONFLICT(shop_id) DO UPDATE SET last_run_at = excluded.last_run_at`,

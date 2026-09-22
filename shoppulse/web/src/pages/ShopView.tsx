@@ -8,6 +8,7 @@ import PricingTab from './PricingTab';
 import InventoryTab from './InventoryTab';
 import AutopilotTab from './AutopilotTab';
 import AdvisorTab from './AdvisorTab';
+import SwarmTab from './SwarmTab';
 import SnippetInstructions from '../components/SnippetInstructions';
 
 export default function ShopView() {
@@ -64,6 +65,7 @@ export default function ShopView() {
         {tab(`/shops/${id}`, 'Übersicht')}
         {tab(`/shops/${id}/berater`, 'KI-Berater')}
         {tab(`/shops/${id}/autopilot`, 'Autopilot')}
+        {tab(`/shops/${id}/schwarm`, 'Schwarmwissen')}
         {tab(`/shops/${id}/segmente`, 'Segmente')}
         {tab(`/shops/${id}/experimente`, 'Nudges & A/B-Tests')}
         {tab(`/shops/${id}/pricing`, 'Pricing Intelligence')}
@@ -79,6 +81,7 @@ export default function ShopView() {
         <Route path="lager" element={<InventoryTab shop={shop} />} />
         <Route path="autopilot" element={<AutopilotTab shopId={id} canEdit={role !== null && role !== 'viewer'} />} />
         <Route path="berater" element={<AdvisorTab shopId={id} />} />
+        <Route path="schwarm" element={<SwarmTab shopId={id} isOwner={role === 'owner'} />} />
         <Route
           path="integration"
           element={

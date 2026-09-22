@@ -7,6 +7,7 @@ const SUGGESTIONS = [
   'Was sollte ich diese Woche als Erstes tun?',
   'Warum hat sich die Conversion in den letzten 7 Tagen verändert?',
   'Was hat der Autopilot bisher gebracht?',
+  'Wo stehe ich im Vergleich zu anderen Shops meiner Branche?',
   'Welche Produkte sollte ich nachbestellen oder im Preis anpassen?',
 ];
 
@@ -19,6 +20,7 @@ const TOOL_LABEL: Record<string, string> = {
   get_pricing: 'Pricing',
   get_inventory: 'Lager',
   get_autopilot: 'Autopilot',
+  get_benchmarks: 'Schwarmwissen',
 };
 
 /** Minimale, sichere Darstellung (kein HTML): Absaetze, Aufzaehlungen, **fett**. */

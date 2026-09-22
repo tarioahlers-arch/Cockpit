@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { AUTOPILOT_NUDGES, allowedNudges, getAutopilotSettings, logAction, runAutopilot } from '../autopilot/engine.js';
 import { computeUplift, monthRange } from '../autopilot/uplift.js';
 import { isNudgeType } from '../analytics/nudges.js';
+import { SEGMENTS } from '../analytics/segmentation.js';
 
 export const autopilotRouter = Router();
 
@@ -109,4 +110,18 @@ autopilotRouter.get('/shops/:id/uplift', (req, res) => {
   const m = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month) ? req.query.month : new Date().toISOString().slice(0, 7);
   const [from, to] = monthRange(m);
   res.json({ month: m, ...computeUplift(shop.id, from, to) });
+});
+
+/** Zielsegmente eines Rollouts anpassen (null = alle). */
+autopilotRouter.patch('/rollouts/:id', (req, res) => {
+  const r = db.prepare('SELECT * FROM nudge_rollouts WHERE id = ?').get(req.params.id) as { id: number; shop_id: number } | undefined;
+  if (!r || !ownsShop(req, r.shop_id)) return res.status(404).json({ error: 'Rollout nicht gefunden.' });
+  const raw = req.body?.segments;
+  const valid = Object.keys(SEGMENTS);
+  if (raw !== null && (!Array.isArray(raw) || !raw.length || !raw.every((x: unknown) => typeof x === 'string' && valid.includes(x)))) {
+    return res.status(400).json({ error: 'Ungültige Segmente.' });
+  }
+  db.prepare('UPDATE nudge_rollouts SET target_segments = ? WHERE id = ?').run(raw === null ? null : JSON.stringify([...new Set(raw)]), r.id);
+  logAction(r.shop_id, 'settings', 'Zielsegmente eines Rollouts geändert', `durch ${req.user!.name}: ${raw === null ? 'alle Segmente' : raw.join(', ')}`);
+  res.json({ ok: true });
 });

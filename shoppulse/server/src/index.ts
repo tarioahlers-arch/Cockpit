@@ -13,6 +13,7 @@ const { createApp } = await import('./app.js');
 const { cleanupAuth } = await import('./auth/index.js');
 const { startInventoryScheduler } = await import('./inventory/sync.js');
 const { startAutopilotScheduler } = await import('./autopilot/engine.js');
+const { startSwarmScheduler } = await import('./swarm/swarm.js');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4100;
 const app = createApp();
@@ -20,6 +21,7 @@ const app = createApp();
 if (process.env.SHOPPULSE_DISABLE_SCHEDULER !== '1') {
   startInventoryScheduler();
   startAutopilotScheduler();
+  startSwarmScheduler();
 }
 cleanupAuth();
 setInterval(cleanupAuth, 60 * 60 * 1000).unref();

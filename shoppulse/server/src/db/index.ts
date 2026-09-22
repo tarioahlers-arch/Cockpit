@@ -48,6 +48,20 @@ function migrate() {
     db.exec('ALTER TABLE experiments ADD COLUMN created_by_autopilot INTEGER NOT NULL DEFAULT 0');
   }
 
+  // Schwarmwissen: Teilnahme je Shop, Token fuer den pseudonymen Quellschluessel
+  if (!columns('shops').includes('swarm_opt_in')) {
+    db.exec('ALTER TABLE shops ADD COLUMN swarm_opt_in INTEGER NOT NULL DEFAULT 0');
+    db.exec('ALTER TABLE shops ADD COLUMN swarm_token TEXT');
+  }
+  // Segment-Targeting fuer Tests und Rollouts (NULL = alle Besucher:innen)
+  if (!columns('experiments').includes('target_segments')) {
+    db.exec('ALTER TABLE experiments ADD COLUMN target_segments TEXT');
+    db.exec('ALTER TABLE experiments ADD COLUMN swarm_contributed_at TEXT');
+  }
+  if (!columns('nudge_rollouts').includes('target_segments')) {
+    db.exec('ALTER TABLE nudge_rollouts ADD COLUMN target_segments TEXT');
+  }
+
   // Rollenmodell owner | editor | viewer (fruehere Bezeichnung "member" = editor)
   db.exec(`UPDATE users SET role = 'editor' WHERE role = 'member'`);
 
@@ -90,6 +104,8 @@ export interface ShopRow {
   public_key: string;
   is_demo: number;
   org_id: number | null;
+  swarm_opt_in: number;
+  swarm_token: string | null;
   created_at: string;
 }
 
@@ -120,6 +136,8 @@ export interface ExperimentRow {
   started_at: string | null;
   stopped_at: string | null;
   created_by_autopilot: number;
+  target_segments: string | null;
+  swarm_contributed_at: string | null;
 }
 
 export interface ProductRow {

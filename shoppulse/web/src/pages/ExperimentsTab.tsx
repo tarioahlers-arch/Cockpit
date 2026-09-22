@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, fmt, type Experiment, type NudgeDefinition, type NudgeType } from '../api';
+import { api, fmt, SEGMENT_LABEL, type Experiment, type NudgeDefinition, type NudgeType } from '../api';
 import { SERIES_A, SERIES_B } from '../components/charts';
 
 const VERDICT_TAG: Record<Experiment['analysis']['verdict'], [string, string]> = {
@@ -36,6 +36,7 @@ function ExperimentCard({ exp, onChange }: { exp: Experiment; onChange: () => vo
           <div className="tags">
             <span className="tag blue">{exp.nudge_type.replace('_', ' ')}</span>
             <span className="tag">Seite: {exp.page_type}</span>
+            {exp.target_segments && <span className="tag accent">Nur: {exp.target_segments.map((k) => SEGMENT_LABEL[k] ?? k).join(', ')}</span>}
             <span className="tag">{STATUS_LABEL[exp.status]}</span>
             {exp.status !== 'draft' && <span className={`tag ${tagClass}`}>{tagLabel}</span>}
           </div>
@@ -89,6 +90,23 @@ function ExperimentCard({ exp, onChange }: { exp: Experiment; onChange: () => vo
       )}
 
       <div className={`headline ${a.verdict}`}>{a.headline}</div>
+      {exp.swarm && (
+        <div className="info-banner" style={{ margin: '8px 0' }}>
+          <strong>Schwarmwissen ({exp.swarm.shops} Shops):</strong> {exp.swarm.text}
+          {exp.swarm.earlyDecision && (
+            <>
+              {' '}
+              <strong>
+                → {exp.swarm.earlyDecision === 'winner' ? 'Mit Schwarmwissen bereits als Gewinner entscheidbar.' : 'Mit Schwarmwissen bereits als Verlierer entscheidbar.'}
+              </strong>
+            </>
+          )}
+          <div className="progress" style={{ marginTop: 8 }} title="Anteil Ihrer eigenen Daten an der Aussage">
+            <div style={{ width: `${exp.swarm.ownWeight * 100}%`, background: 'var(--accent)' }} />
+          </div>
+          <div className="muted small">Anteil Ihrer eigenen Daten: {Math.round(exp.swarm.ownWeight * 100)} % – wächst mit jedem Besuch</div>
+        </div>
+      )}
       <ul className="explanation">
         {a.explanation.map((l) => (
           <li key={l}>{l}</li>
@@ -144,6 +162,7 @@ export default function ExperimentsTab({ shopId }: { shopId: number }) {
   const [nudges, setNudges] = useState<NudgeDefinition[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', nudgeType: 'social_proof' as NudgeType, pageType: 'product', mde: '20', targetSku: '', variantSkus: '' });
+  const [segments, setSegments] = useState<string[]>([]);
 
   const load = () => api.experiments(shopId).then(setExperiments).catch((e) => setError(e.message));
   useEffect(() => {
@@ -163,7 +182,13 @@ export default function ExperimentsTab({ shopId }: { shopId: number }) {
       config.variantSkus = form.variantSkus.split(',').map((s) => s.trim()).filter(Boolean);
     }
     try {
-      await api.createExperiment(shopId, { name: form.name, nudgeType: form.nudgeType, pageType: form.pageType, config });
+      await api.createExperiment(shopId, {
+        name: form.name,
+        nudgeType: form.nudgeType,
+        pageType: form.pageType,
+        config,
+        targetSegments: segments.length ? segments : null,
+      });
       setForm({ ...form, name: '' });
       load();
     } catch (err) {
@@ -219,6 +244,21 @@ export default function ExperimentsTab({ shopId }: { shopId: number }) {
                 </div>
               </>
             )}
+          </div>
+          <div className="form-field">
+            <label>Zielsegmente (optional – leer = alle Besucher:innen)</label>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              {Object.entries(SEGMENT_LABEL).map(([k, label]) => (
+                <label className="toggle" key={k}>
+                  <input
+                    type="checkbox"
+                    checked={segments.includes(k)}
+                    onChange={(e) => setSegments(e.target.checked ? [...segments, k] : segments.filter((x) => x !== k))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </div>
           {selected && (
             <div className="info-banner">

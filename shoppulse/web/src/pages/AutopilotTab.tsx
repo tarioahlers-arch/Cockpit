@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, fmt, type AutopilotData, type NudgeType, type UpliftReport } from '../api';
+import { api, fmt, SEGMENT_LABEL, type AutopilotData, type NudgeType, type UpliftReport } from '../api';
 
 const NUDGE_LABEL: Record<string, string> = {
   social_proof: 'Social Proof (echte Kaufzahlen)',
@@ -222,6 +222,56 @@ export default function AutopilotTab({ shopId, canEdit }: { shopId: number; canE
           </div>
           <UpliftCard u={report} title={`Uplift-Nachweis ${new Date(month + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}`} />
         </>
+      )}
+
+      {data.rollouts.filter((r) => r.active).length > 0 && (
+        <div className="panel">
+          <p className="section-title" style={{ marginBottom: 12 }}>
+            Aktive Rollouts & Segment-Targeting
+          </p>
+          {data.rollouts
+            .filter((r) => r.active)
+            .map((r) => {
+              const segs: string[] | null = r.target_segments ? JSON.parse(r.target_segments) : null;
+              return (
+                <div className="source-card" key={r.id}>
+                  <div className="head">
+                    <div>
+                      <strong>{NUDGE_LABEL[r.nudge_type] ?? r.nudge_type}</strong> <span className="tag">Seite: {r.page_type}</span>
+                      <div className="muted small" style={{ marginTop: 4 }}>
+                        seit {ts(r.started_at)} · ausgespielt für {segs ? segs.map((k) => SEGMENT_LABEL[k] ?? k).join(', ') : 'alle Segmente'} (außer
+                        Kontrollgruppe)
+                      </div>
+                    </div>
+                  </div>
+                  {canEdit && (
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
+                      {Object.entries(SEGMENT_LABEL).map(([k, label]) => {
+                        const on = !segs || segs.includes(k);
+                        return (
+                          <label className="toggle" key={k}>
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              disabled={busy}
+                              onChange={() => {
+                                const current = segs ?? Object.keys(SEGMENT_LABEL);
+                                const next = on ? current.filter((x) => x !== k) : [...current, k];
+                                if (!next.length) return setError('Mindestens ein Segment muss ausgewählt bleiben.');
+                                const all = next.length === Object.keys(SEGMENT_LABEL).length;
+                                run(() => api.setRolloutSegments(r.id, all ? null : next), 'Zielsegmente gespeichert.');
+                              }}
+                            />
+                            {label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </div>
       )}
 
       <div className="panel">

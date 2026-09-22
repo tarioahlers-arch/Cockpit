@@ -8,6 +8,7 @@ import { pricingForShop } from '../routes/pricing.js';
 import { getAvailability } from '../inventory/availability.js';
 import { getAutopilotSettings } from '../autopilot/engine.js';
 import { computeUplift } from '../autopilot/uplift.js';
+import { getBenchmarks, getNudgeEvidence, networkSize, sourceHash } from '../swarm/swarm.js';
 
 /**
  * Werkzeuge des KI-Beraters. Alle sind reine Lesezugriffe und an den Shop gebunden, den der Server
@@ -61,6 +62,12 @@ export const ADVISOR_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'get_inventory',
     description: 'Lagerbestände und Verfügbarkeit je Produkt (wie Kund:innen sie sehen) sowie Status der angebundenen Bestandsquellen.',
+    input_schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'get_benchmarks',
+    description:
+      'Schwarmwissen (nur wenn der Shop teilnimmt): Vergleich der eigenen Kennzahlen mit anonymisierten Shops derselben Branche (Median, Quartile, Rang) und die im Netzwerk gemessene Wirkung der Nudges je Verhaltenssegment. Werte gibt es erst ab einer Mindestanzahl von Shops.',
     input_schema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
@@ -240,6 +247,10 @@ export function executeTool(shop: ShopRow, name: string, input: Record<string, u
         products: products.map((p, i) => ({ name: p.name, sku: p.sku, status: avail[i].status, label: avail[i].label, stores: avail[i].stores })),
         sources,
       };
+    }
+    case 'get_benchmarks': {
+      if (!sourceHash(shop)) return { participating: false, note: 'Der Shop nimmt nicht am Schwarmwissen teil (Einstellung im Tab "Schwarmwissen", nur Inhaber:innen).' };
+      return { participating: true, network: networkSize(shop), benchmarks: getBenchmarks(shop), nudgeEvidence: getNudgeEvidence(shop) };
     }
     case 'get_autopilot': {
       const settings = getAutopilotSettings(shop.id);

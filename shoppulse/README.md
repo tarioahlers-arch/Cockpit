@@ -21,6 +21,57 @@ begründet, *warum* sie wirkt.
 | **F) Growth-Autopilot** | Führt den Kreislauf Empfehlung → A/B-Test → Auswertung → Rollout selbstständig. Er rollt nur statistisch gesicherte Gewinner aus, stoppt schädliche Tests sofort und protokolliert jede Aktion mit Begründung. Eine **dauerhafte Kontrollgruppe** weist den Mehrumsatz in Euro nach. |
 | **G) KI-Berater** | Fragen in Klartext („Warum ist die Conversion letzte Woche gefallen?“). Claude beantwortet sie ausschließlich mit den echten Shop-Daten, die es über schreibgeschützte Werkzeuge abruft. Für Kund:innen inklusive, die Kosten trägt der Plattformbetreiber. |
 
+| **H) Schwarmwissen & Segment-Targeting** | Anonymisiertes Lernen über alle teilnehmenden Shops einer Branche. Tests kommen mit Vorwissen früher zum Ergebnis, dazu gibt es Branchen-Benchmarks. Nudges werden nur den Verhaltenssegmenten ausgespielt, bei denen sie wirken. |
+
+### Schwarmwissen
+
+**Teilnahme**
+- **Einwilligung:** Jeder Shop entscheidet selbst, nur Inhaber:innen.
+- **Geben und Nehmen:** Auswertungen sieht nur, wer selbst beiträgt.
+- **Widerruf:** löscht sofort alle Beiträge des Shops. Bei erneuter Teilnahme erzeugt ShopPulse einen neuen pseudonymen Schlüssel.
+
+**Was geteilt wird**
+- Nur zusammengefasste Ergebnisse beendeter Tests: Besucher:innen und Käufe je Variante, gesamt und je Segment.
+- Dazu Monatskennzahlen: Conversion, Bestellwert, Abbruchquoten, Zögerquote, Segmentanteile.
+- Keine Rohdaten, Produkte, Preise oder Shopnamen. Der Quellschlüssel ist ein Hash eines zufälligen Tokens.
+
+**Anonymität**
+- Aggregate werden erst ab `SHOPPULSE_SWARM_MIN_SHOPS` anderen Shops sichtbar (Standard 5).
+- Eigene Beiträge fließen nie in die eigenen Vergleiche ein.
+- Das Demo-Netzwerk ist strikt von echten Daten getrennt.
+
+**Statistik**
+- Effektmaß ist das logarithmierte relative Risiko. Mehrere Shops werden per Random-Effects-Meta-Analyse (DerSimonian-Laird) zusammengefasst.
+- **Vorwissen für den eigenen Shop:** die Vorhersageverteilung für einen weiteren Shop. Sie ist bewusst skeptisch: mindestens ±5 % Streuung.
+- Das Vorwissen wird mit der eigenen Messung kombiniert (Normal-Normal-Modell). Der Anteil der eigenen Daten wächst mit jedem Besuch und wird angezeigt.
+
+**Frühere Entscheidung.** Der Autopilot entscheidet vor Erreichen der geplanten Stichprobe nur, wenn alle drei Bedingungen erfüllt sind:
+1. mindestens 300 Besucher:innen je Variante im eigenen Shop,
+2. die eigene Messung zeigt in dieselbe Richtung,
+3. die Wahrscheinlichkeit, dass B besser ist, liegt bei mindestens 97,5 % (bzw. höchstens 2,5 %).
+
+Protokoll und Testkarte weisen aus, wie stark die Entscheidung auf dem Netzwerk beruht. Sicherheitsstopp und Kontrollgruppe prüfen die Wirkung im eigenen Shop weiter.
+
+**Weitere Nutzung**
+- **Testauswahl:** Der Autopilot testet zuerst, was in vergleichbaren Shops wirkte. Nudges, die dort klar ohne Nutzen blieben, überspringt er.
+- **Benchmarks:** eigene Kennzahlen im Vergleich zu Median und Quartilen der Branche.
+- **KI-Berater:** hat dafür das Werkzeug `get_benchmarks`.
+
+### Segment-Targeting
+
+**Wie Besucher:innen einem Segment zugeordnet werden**
+- Der Server bestimmt das Segment aus dem bisherigen Verhalten der letzten 30 Tage: preissensibel, bequemlichkeitsorientiert, zögernd, stöbernd oder noch unklar.
+- Das Snippet schickt dafür nach der Einwilligung die pseudonyme Besucher-ID mit.
+
+**Tests und Rollouts**
+- **Zielsegmente:** Tests und Rollouts können auf Segmente begrenzt werden.
+- **Nur passende Besucher:innen zählen:** Nur sie sehen den Nudge und gehen in die Auswertung ein.
+- **Rollouts:**
+  - Segment-Effekte des eigenen Tests werden zum Gesamteffekt hin geschrumpft bzw. mit dem Schwarmwissen je Segment kombiniert.
+  - Ausgenommen wird ein Segment nur, wenn der geschätzte Nutzen dort unter 2 % liegt. Das vermeidet Hinweis-Müdigkeit und Scheineffekte kleiner Untergruppen.
+- **Neue Tests:** Segmente, in denen der Nudge im Schwarm klar geschadet hat, werden gar nicht erst getestet.
+- **Manuell anpassen:** im Tab „Autopilot“ (Rollouts) und beim Anlegen eines Tests.
+
 ### Growth-Autopilot
 
 **Freigabe und Modus**
@@ -321,6 +372,7 @@ Organisation und sind deshalb für niemanden sichtbar. Sie werden bewusst per Be
 | `SHOPPULSE_AI_MODEL` / `SHOPPULSE_AI_EFFORT` | Modell und Denktiefe des KI-Beraters | `claude-opus-5` / `medium` |
 | `SHOPPULSE_AI_MONTHLY_BUDGET_USD` / `SHOPPULSE_AI_QUESTIONS_PER_HOUR` | Kostenbremse je Organisation bzw. Person | `25` / `30` |
 | `SHOPPULSE_PERFORMANCE_FEE_PCT` | Performance-Anteil am nachgewiesenen Mehrumsatz (Untergrenze) | `10` |
+| `SHOPPULSE_SWARM_MIN_SHOPS` | Mindestanzahl anderer Shops, ab der Schwarm-Aggregate sichtbar/nutzbar sind | `5` |
 | `SHOPPULSE_SMTP_URL` / `SHOPPULSE_MAIL_FROM` | Mailversand (`smtps://user:pass@host:465`); ohne Angabe stehen Mails im Server-Log | – |
 | `SHOPPULSE_COOKIE_SECURE` | `1` erzwingt das `Secure`-Cookie auch außerhalb des Produktivmodus | aus (im Produktivmodus an) |
 | `SHOPPULSE_TRUST_PROXY` | Express-`trust proxy` hinter Load Balancer/Reverse Proxy (für korrekte IP und HTTPS-Erkennung) | aus |
@@ -339,6 +391,10 @@ zugewiesener Variante erscheint über dem Button z. B. „11× in den letzten 48
 - **Kontrollgruppe:** Sie ist auf 15 % gesetzt, damit die Demo-Daten für den Nachweis reichen.
 - **„Jetzt ausführen“:** Rollt Social Proof als Gewinner aus und startet den nächsten Test (Scarcity).
 - **Uplift-Nachweis:** Er zeigt mit den Demo-Daten ehrlich „Trend positiv, noch nicht gesichert“, die Abrechnungsbasis bleibt also 0 €.
+
+**Schwarmwissen in der Demo**
+- Der Demo-Shop nimmt an einem **simulierten** Netzwerk teil: Mode 24 Shops, Elektronik 8 Shops, B2B 3 Shops (bleibt unter der Mindestanzahl, bewusst).
+- **Beim Autopilot-Lauf:** Der Social-Proof-Rollout nimmt preissensible Besucher:innen aus. Der Scarcity-Test lässt stöbernde Besucher:innen weg, weil Scarcity ihnen im Netzwerk geschadet hat.
 
 Die Demo-Lagerintegration besteht aus zwei „Tools“:
 - **ERP-Export als CSV-Feed:** Der Demo-Server stellt ihn selbst bereit, der Scheduler ruft ihn echt per HTTP ab.

@@ -258,3 +258,42 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_ai_usage_org_month ON ai_usage(org_id, month);
+
+-- ---------------------------------------------------------------------------
+-- Schwarmwissen (shopuebergreifendes Lernen, nur mit Einwilligung)
+-- Gespeichert werden ausschliesslich zusammengefasste Werte. source_hash ist ein pseudonymer
+-- Schluessel (SHA-256 eines zufaelligen Tokens je Shop), damit Beitraege gezaehlt und bei
+-- Widerruf geloescht werden koennen – andere Shops sehen nie Einzelwerte, nur Aggregate ab
+-- einer Mindestanzahl von Shops.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS swarm_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_hash TEXT NOT NULL,
+  is_demo INTEGER NOT NULL DEFAULT 0,       -- Demo-Netzwerk ist strikt von echten Daten getrennt
+  niche TEXT NOT NULL,
+  nudge_type TEXT NOT NULL,
+  segment TEXT NOT NULL,                     -- 'all' oder Segment-Schluessel
+  control_visitors INTEGER NOT NULL,
+  control_conversions INTEGER NOT NULL,
+  treatment_visitors INTEGER NOT NULL,
+  treatment_conversions INTEGER NOT NULL,
+  month TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_swarm_results_lookup ON swarm_results(is_demo, niche, nudge_type, segment);
+
+CREATE TABLE IF NOT EXISTS swarm_benchmarks (
+  source_hash TEXT NOT NULL,
+  is_demo INTEGER NOT NULL DEFAULT 0,
+  niche TEXT NOT NULL,
+  month TEXT NOT NULL,
+  sessions INTEGER NOT NULL,
+  conversion_rate REAL NOT NULL,
+  average_order_value REAL NOT NULL,
+  cart_abandonment_rate REAL NOT NULL,
+  checkout_abandonment_rate REAL NOT NULL,
+  hesitation_rate REAL NOT NULL,
+  segment_shares TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (source_hash, month)
+);

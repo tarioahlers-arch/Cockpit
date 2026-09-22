@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { db, type ExperimentRow, type ShopRow } from '../db/index.js';
 import { getAvailability } from '../inventory/availability.js';
+import { classifyVisitor, visitorFeatures } from '../analytics/segmentation.js';
+import type { EventRow } from '../db/index.js';
 
 /**
  * Oeffentliche Endpunkte, die das Tracking-Snippet im Shop aufruft. Authentisierung per public_key –
@@ -79,9 +81,21 @@ publicRouter.get('/public/config', (req, res) => {
     .prepare(`SELECT * FROM experiments WHERE shop_id = ? AND status = 'running' AND page_type = ?`)
     .all(shop.id, pageType) as ExperimentRow[];
 
+  // Segment der Besucherin/des Besuchers aus dem bisherigen Verhalten (fuer Segment-Targeting)
+  const visitor = typeof req.query.visitor === 'string' && ID_RE.test(req.query.visitor) ? req.query.visitor : null;
+  const segment = visitor ? visitorSegment(shop.id, visitor) : 'undetermined';
+  const segs = (raw: string | null) => (raw ? (JSON.parse(raw) as string[]) : null);
+
   const out = experiments.map((exp) => {
     const config = JSON.parse(exp.config) as Record<string, unknown>;
-    return { id: exp.id, type: exp.nudge_type, split: exp.traffic_split, config, data: nudgeData(shop, exp.nudge_type, config, sku) };
+    return {
+      id: exp.id,
+      type: exp.nudge_type,
+      split: exp.traffic_split,
+      segments: segs(exp.target_segments),
+      config,
+      data: nudgeData(shop, exp.nudge_type, config, sku),
+    };
   });
 
   // Ausgerollte Gewinner (Autopilot) und Anteil der dauerhaften Kontrollgruppe
@@ -91,16 +105,16 @@ publicRouter.get('/public/config', (req, res) => {
   const rollouts = (
     db
       .prepare('SELECT * FROM nudge_rollouts WHERE shop_id = ? AND active = 1 AND page_type = ?')
-      .all(shop.id, pageType) as { id: number; nudge_type: string; config: string }[]
+      .all(shop.id, pageType) as { id: number; nudge_type: string; config: string; target_segments: string | null }[]
   ).map((r) => {
     const config = JSON.parse(r.config) as Record<string, unknown>;
-    return { id: r.id, type: r.nudge_type, config, data: nudgeData(shop, r.nudge_type, config, sku) };
+    return { id: r.id, type: r.nudge_type, segments: segs(r.target_segments), config, data: nudgeData(shop, r.nudge_type, config, sku) };
   });
   const hasRollouts = (db.prepare('SELECT 1 FROM nudge_rollouts WHERE shop_id = ? AND active = 1').get(shop.id) as unknown) !== undefined;
   // Kontrollgruppe gilt, solange der Autopilot laeuft oder Gewinner ausgerollt sind
   const holdoutShare = autopilot?.enabled || hasRollouts ? (autopilot?.holdout_share ?? 0.05) : 0;
 
-  res.json({ experiments: out, rollouts, holdoutShare });
+  res.json({ experiments: out, rollouts, holdoutShare, segment });
 });
 
 /** Verfuegbarkeit fuer Kund:innen (Produktseite, Kategorie-Listing, Warenkorb). */
@@ -115,6 +129,14 @@ publicRouter.get('/public/availability', (req, res) => {
   res.set('Cache-Control', 'public, max-age=60');
   res.json({ items: getAvailability(shop.id, [...new Set(skus)]) });
 });
+
+function visitorSegment(shopId: number, visitorId: string): string {
+  const events = db
+    .prepare(`SELECT * FROM events WHERE shop_id = ? AND visitor_id = ? AND ts >= datetime('now', '-30 days') ORDER BY ts LIMIT 1000`)
+    .all(shopId, visitorId) as EventRow[];
+  const f = visitorFeatures(events).get(visitorId);
+  return f ? classifyVisitor(f).segment : 'undetermined';
+}
 
 /** Echte Daten fuer einen Nudge (Kaufzahlen, Bestand, Bestseller-Status) – fuer Tests und Rollouts. */
 function nudgeData(shop: ShopRow, nudgeType: string, config: Record<string, unknown>, sku: string | null): Record<string, unknown> {

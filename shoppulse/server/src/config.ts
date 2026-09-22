@@ -35,6 +35,9 @@ export function validateProductionConfig(): string[] {
   } else if (!/^smtps?:\/\//.test(config.smtpUrl)) {
     problems.push('SHOPPULSE_SMTP_URL muss mit smtp:// oder smtps:// beginnen.');
   }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    problems.push('ANTHROPIC_API_KEY fehlt – der KI-Berater ist für alle Kund:innen inklusive und muss eingerichtet sein.');
+  }
   if (!process.env.SHOPPULSE_TRUST_PROXY) {
     problems.push('SHOPPULSE_TRUST_PROXY fehlt – hinter einem HTTPS-Reverse-Proxy nötig (z. B. "1" oder "loopback").');
   }

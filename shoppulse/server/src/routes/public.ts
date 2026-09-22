@@ -17,6 +17,7 @@ const EVENT_TYPES = new Set([
   'purchase',
   'price_filter',
   'exposure',
+  'group', // Zuordnung zur Kontrollgruppe (holdout) bzw. zu Besucher:innen mit Nudges (exposed)
 ]);
 const PAGE_TYPES = new Set(['home', 'category', 'product', 'cart', 'checkout', 'confirmation', 'other']);
 const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
@@ -49,8 +50,10 @@ publicRouter.post('/collect', (req, res) => {
       const pageType = PAGE_TYPES.has(e.pageType) ? e.pageType : null;
       const value = typeof e.value === 'number' && Number.isFinite(e.value) ? e.value : null;
       const experimentId = Number.isInteger(e.experimentId) ? e.experimentId : null;
-      const variant = e.variant === 'control' || e.variant === 'treatment' ? e.variant : null;
+      const allowedVariants = e.type === 'group' ? ['holdout', 'exposed'] : ['control', 'treatment'];
+      const variant = allowedVariants.includes(e.variant) ? e.variant : null;
       if (e.type === 'exposure' && (experimentId === null || variant === null)) continue;
+      if (e.type === 'group' && variant === null) continue;
       insert.run(shop.id, visitorId, sessionId, e.type, pageType, str(e.sku, 64), value, experimentId, variant);
       accepted += 1;
       // Einzelpositionen einer Bestellung fuer ehrlichen Social Proof je Produkt
@@ -78,52 +81,26 @@ publicRouter.get('/public/config', (req, res) => {
 
   const out = experiments.map((exp) => {
     const config = JSON.parse(exp.config) as Record<string, unknown>;
-    const data: Record<string, unknown> = {};
-
-    if (exp.nudge_type === 'social_proof' && sku) {
-      const hours = Math.min(168, Math.max(1, Number(config.windowHours) || 48));
-      const { n } = db
-        .prepare(
-          `SELECT COUNT(*) as n FROM events WHERE shop_id = ? AND type = 'purchase_item' AND sku = ? AND ts >= datetime('now', ?)`,
-        )
-        .get(shop.id, sku, `-${hours} hours`) as { n: number };
-      data.count = n;
-      data.hours = hours;
-      data.show = n >= (Number(config.minCount) || 3);
-    }
-    if (exp.nudge_type === 'scarcity' && sku) {
-      // Integrierter Lagerbestand hat Vorrang – aber nur, wenn er aktuell ist
-      const a = getAvailability(shop.id, [sku])[0];
-      if (a.status === 'out_of_stock' || a.status === 'low_stock') data.stock = a.quantity;
-      else if (a.status === 'in_stock') data.stock = null;
-      else {
-        const p = db.prepare('SELECT stock FROM products WHERE shop_id = ? AND sku = ?').get(shop.id, sku) as
-          | { stock: number | null }
-          | undefined;
-        // ohne Integration: Produkttabelle, sonst nutzt das Snippet data-sp-stock der Seite
-        if (p?.stock != null) data.stock = p.stock;
-      }
-    }
-    if (exp.nudge_type === 'decoy') {
-      const skus = Array.isArray(config.variantSkus) ? (config.variantSkus as string[]) : [];
-      if (skus.length) {
-        const placeholders = skus.map(() => '?').join(',');
-        const rows = db
-          .prepare(
-            `SELECT sku, COUNT(*) as n FROM events WHERE shop_id = ? AND type IN ('add_to_cart','purchase_item')
-             AND sku IN (${placeholders}) AND ts >= datetime('now','-30 days') GROUP BY sku ORDER BY n DESC`,
-          )
-          .all(shop.id, ...skus) as { sku: string; n: number }[];
-        // Hinweis "Beliebteste Wahl" nur, wenn die Zielvariante tatsaechlich vorne liegt
-        data.show = rows.length > 0 && rows[0].sku === config.targetSku;
-      } else {
-        data.show = false;
-      }
-    }
-    return { id: exp.id, type: exp.nudge_type, split: exp.traffic_split, config, data };
+    return { id: exp.id, type: exp.nudge_type, split: exp.traffic_split, config, data: nudgeData(shop, exp.nudge_type, config, sku) };
   });
 
-  res.json({ experiments: out });
+  // Ausgerollte Gewinner (Autopilot) und Anteil der dauerhaften Kontrollgruppe
+  const autopilot = db.prepare('SELECT enabled, holdout_share FROM autopilot_settings WHERE shop_id = ?').get(shop.id) as
+    | { enabled: number; holdout_share: number }
+    | undefined;
+  const rollouts = (
+    db
+      .prepare('SELECT * FROM nudge_rollouts WHERE shop_id = ? AND active = 1 AND page_type = ?')
+      .all(shop.id, pageType) as { id: number; nudge_type: string; config: string }[]
+  ).map((r) => {
+    const config = JSON.parse(r.config) as Record<string, unknown>;
+    return { id: r.id, type: r.nudge_type, config, data: nudgeData(shop, r.nudge_type, config, sku) };
+  });
+  const hasRollouts = (db.prepare('SELECT 1 FROM nudge_rollouts WHERE shop_id = ? AND active = 1').get(shop.id) as unknown) !== undefined;
+  // Kontrollgruppe gilt, solange der Autopilot laeuft oder Gewinner ausgerollt sind
+  const holdoutShare = autopilot?.enabled || hasRollouts ? (autopilot?.holdout_share ?? 0.05) : 0;
+
+  res.json({ experiments: out, rollouts, holdoutShare });
 });
 
 /** Verfuegbarkeit fuer Kund:innen (Produktseite, Kategorie-Listing, Warenkorb). */
@@ -138,6 +115,53 @@ publicRouter.get('/public/availability', (req, res) => {
   res.set('Cache-Control', 'public, max-age=60');
   res.json({ items: getAvailability(shop.id, [...new Set(skus)]) });
 });
+
+/** Echte Daten fuer einen Nudge (Kaufzahlen, Bestand, Bestseller-Status) – fuer Tests und Rollouts. */
+function nudgeData(shop: ShopRow, nudgeType: string, config: Record<string, unknown>, sku: string | null): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+
+  if (nudgeType === 'social_proof' && sku) {
+    const hours = Math.min(168, Math.max(1, Number(config.windowHours) || 48));
+    const { n } = db
+      .prepare(
+        `SELECT COUNT(*) as n FROM events WHERE shop_id = ? AND type = 'purchase_item' AND sku = ? AND ts >= datetime('now', ?)`,
+      )
+      .get(shop.id, sku, `-${hours} hours`) as { n: number };
+    data.count = n;
+    data.hours = hours;
+    data.show = n >= (Number(config.minCount) || 3);
+  }
+  if (nudgeType === 'scarcity' && sku) {
+    // Integrierter Lagerbestand hat Vorrang – aber nur, wenn er aktuell ist
+    const a = getAvailability(shop.id, [sku])[0];
+    if (a.status === 'out_of_stock' || a.status === 'low_stock') data.stock = a.quantity;
+    else if (a.status === 'in_stock') data.stock = null;
+    else {
+      const p = db.prepare('SELECT stock FROM products WHERE shop_id = ? AND sku = ?').get(shop.id, sku) as
+        | { stock: number | null }
+        | undefined;
+      // ohne Integration: Produkttabelle, sonst nutzt das Snippet data-sp-stock der Seite
+      if (p?.stock != null) data.stock = p.stock;
+    }
+  }
+  if (nudgeType === 'decoy') {
+    const skus = Array.isArray(config.variantSkus) ? (config.variantSkus as string[]) : [];
+    if (skus.length) {
+      const placeholders = skus.map(() => '?').join(',');
+      const rows = db
+        .prepare(
+          `SELECT sku, COUNT(*) as n FROM events WHERE shop_id = ? AND type IN ('add_to_cart','purchase_item')
+           AND sku IN (${placeholders}) AND ts >= datetime('now','-30 days') GROUP BY sku ORDER BY n DESC`,
+        )
+        .all(shop.id, ...skus) as { sku: string; n: number }[];
+      // Hinweis "Beliebteste Wahl" nur, wenn die Zielvariante tatsaechlich vorne liegt
+      data.show = rows.length > 0 && rows[0].sku === config.targetSku;
+    } else {
+      data.show = false;
+    }
+  }
+  return data;
+}
 
 function safeJson(s: string): any {
   try {

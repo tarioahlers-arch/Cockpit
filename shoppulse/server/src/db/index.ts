@@ -43,6 +43,11 @@ function migrate() {
   const upd = db.prepare('UPDATE inventory_sources SET push_token_hash = ?, push_token_hint = ?, push_token = NULL WHERE id = ?');
   for (const r of plain) upd.run(sha256(r.push_token), r.push_token.slice(-4), r.id);
 
+  // Autopilot: vom Autopiloten angelegte Experimente markieren
+  if (!columns('experiments').includes('created_by_autopilot')) {
+    db.exec('ALTER TABLE experiments ADD COLUMN created_by_autopilot INTEGER NOT NULL DEFAULT 0');
+  }
+
   // Rollenmodell owner | editor | viewer (fruehere Bezeichnung "member" = editor)
   db.exec(`UPDATE users SET role = 'editor' WHERE role = 'member'`);
 
@@ -114,6 +119,7 @@ export interface ExperimentRow {
   created_at: string;
   started_at: string | null;
   stopped_at: string | null;
+  created_by_autopilot: number;
 }
 
 export interface ProductRow {

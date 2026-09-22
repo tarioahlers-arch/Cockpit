@@ -217,6 +217,44 @@
     return null;
   }
 
+  var GROUP_FLAG = 'shoppulse_group_sent';
+
+  /** Dauerhafte Kontrollgruppe (Uplift-Nachweis): stabil je Besucher:in, sieht nie Nudges. */
+  function assignGroup(holdoutShare) {
+    if (!holdoutShare) return 'exposed';
+    var group = hash(visitorId + ':holdout') < holdoutShare ? 'holdout' : 'exposed';
+    var sent = null;
+    try { sent = sessionStorage.getItem(GROUP_FLAG); } catch (e) {}
+    if (sent !== sessionId) {
+      track('group', { variant: group });
+      try { sessionStorage.setItem(GROUP_FLAG, sessionId); } catch (e) {}
+    }
+    return group;
+  }
+
+  function renderInto(exp, page) {
+    if (exp.type === 'decoy') {
+      if (!exp.data || !exp.data.show) return;
+      var target = document.querySelector('[data-sp-variant-sku="' + String(exp.config.targetSku).replace(/"/g, '') + '"]');
+      if (target) target.insertBefore(badge(exp.config.badge || 'Beliebteste Wahl', 'decoy'), target.firstChild);
+      return;
+    }
+    var el = renderNudge(exp, page);
+    var s = el && slot();
+    if (s) s.appendChild(el);
+  }
+
+  function applyConfig(cfg) {
+    var page = pageData();
+    if (assignGroup(cfg.holdoutShare || 0) === 'holdout') {
+      flush();
+      return; // Kontrollgruppe: keine Tests, keine ausgerollten Nudges
+    }
+    // Ausgerollte Gewinner gelten fuer alle uebrigen Besucher:innen
+    (cfg.rollouts || []).forEach(function (r) { renderInto(r, page); });
+    applyExperiments(cfg.experiments || []);
+  }
+
   function applyExperiments(experiments) {
     var page = pageData();
     experiments.forEach(function (exp) {
@@ -226,15 +264,7 @@
         track('exposure', { experimentId: exp.id, variant: variant });
       }
       if (variant !== 'treatment') return;
-      if (exp.type === 'decoy') {
-        if (!exp.data || !exp.data.show) return;
-        var target = document.querySelector('[data-sp-variant-sku="' + String(exp.config.targetSku).replace(/"/g, '') + '"]');
-        if (target) target.insertBefore(badge(exp.config.badge || 'Beliebteste Wahl', 'decoy'), target.firstChild);
-        return;
-      }
-      var el = renderNudge(exp, page);
-      var s = el && slot();
-      if (s) s.appendChild(el);
+      renderInto(exp, page);
     });
     flush();
   }
@@ -245,7 +275,7 @@
       (page.sku ? '&sku=' + encodeURIComponent(page.sku) : '');
     fetch(ENDPOINT + '/api/public/config' + qs)
       .then(function (r) { return r.ok ? r.json() : { experiments: [] }; })
-      .then(function (cfg) { applyExperiments(cfg.experiments || []); })
+      .then(function (cfg) { applyConfig(cfg); })
       .catch(function () {});
   }
 

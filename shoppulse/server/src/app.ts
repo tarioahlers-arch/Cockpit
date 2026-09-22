@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import './db/index.js';
 import { authRouter, enforceReadOnly, requireAuth, requireCsrfHeader, requireOwner } from './auth/index.js';
 import { teamRouter } from './routes/team.js';
+import { autopilotRouter } from './routes/autopilot.js';
+import { aiRouter } from './routes/ai.js';
 import { config } from './config.js';
 import fs from 'node:fs';
 import { shopsRouter } from './routes/shops.js';
@@ -75,6 +77,8 @@ export function createApp() {
   app.use('/api', experimentsRouter);
   app.use('/api', pricingRouter);
   app.use('/api', inventoryRouter);
+  app.use('/api', autopilotRouter);
+  app.use('/api', aiRouter);
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Nicht gefunden.' }));
 
   // --- Dashboard-Oberflaeche (Produktivbetrieb: API und Oberflaeche unter einer Adresse) ---

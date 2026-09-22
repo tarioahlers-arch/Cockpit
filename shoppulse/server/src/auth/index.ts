@@ -91,8 +91,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 /** Lesezugriff ("viewer") darf keine Daten veraendern. */
+/** Anfragen, die trotz POST nichts veraendern (Lesezugriff darf sie nutzen). */
+const READ_ONLY_POSTS = [/^\/api\/shops\/\d+\/advisor$/];
+
 export function enforceReadOnly(req: Request, res: Response, next: NextFunction) {
-  if (req.user?.role === 'viewer' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+  const readOnlyPost = req.method === 'POST' && READ_ONLY_POSTS.some((re) => re.test(req.originalUrl.split('?')[0]));
+  if (req.user?.role === 'viewer' && !readOnlyPost && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return res.status(403).json({ error: 'Ihre Rolle "Lesezugriff" erlaubt keine Änderungen.' });
   }
   next();

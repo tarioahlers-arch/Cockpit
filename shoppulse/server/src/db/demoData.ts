@@ -45,6 +45,10 @@ const ANCHORING_EFFECT: Record<Archetype, number> = {
   bounce: 0,
 };
 
+/** Anteil der dauerhaften Kontrollgruppe in der Demo (hoeher als der Standard von 5 %, damit der
+ *  Uplift-Nachweis mit den begrenzten Demo-Daten sichtbar wird) */
+const DEMO_HOLDOUT = 0.15;
+
 const PRODUCTS = [
   { sku: 'NL-JACKE-01', ean: '4006381333931', name: 'Regenjacke Nordlicht Damen', price: 129.9, cost: 52, stock: 6, elasticity: -1.4, baseUnits: 9 },
   { sku: 'NL-JACKE-02', ean: '4006381333948', name: 'Regenjacke Nordlicht Herren', price: 139.9, cost: 55, stock: 23, elasticity: -2.6, baseUnits: 7 },
@@ -108,13 +112,13 @@ export function createDemoShop(orgId: number): ShopRow {
 
     // --- Experimente ------------------------------------------------------
     const insExp = db.prepare(
-      `INSERT INTO experiments (shop_id, name, nudge_type, page_type, config, status, traffic_split, created_at, started_at, stopped_at)
-       VALUES (?, ?, ?, 'product', ?, ?, 0.5, ?, ?, ?)`,
+      `INSERT INTO experiments (shop_id, name, nudge_type, page_type, config, status, traffic_split, created_at, started_at, stopped_at, created_by_autopilot)
+       VALUES (?, ?, ?, 'product', ?, ?, 0.5, ?, ?, ?, 1)`,
     );
     const spId = Number(
       insExp.run(
         shopId,
-        'Social Proof auf Produktseiten',
+        'Autopilot: Social Proof (Kaufzahlen)',
         'social_proof',
         JSON.stringify({ windowHours: 48, minCount: 3, template: '{count}× in den letzten {hours} Stunden gekauft' }),
         'running',
@@ -126,7 +130,7 @@ export function createDemoShop(orgId: number): ShopRow {
     const anchorId = Number(
       insExp.run(
         shopId,
-        'Referenzpreis-Anker',
+        'Autopilot: Anchoring (Referenzpreis)',
         'anchoring',
         JSON.stringify({ template: 'Statt {reference} € – Sie sparen {savingPct} %' }),
         'stopped',
@@ -136,15 +140,37 @@ export function createDemoShop(orgId: number): ShopRow {
       ).lastInsertRowid,
     );
 
-    insExp.run(
+    // Autopilot ist eingeschaltet und hat beide Tests selbst gestartet (Historie im Protokoll)
+    db.prepare(
+      `INSERT INTO autopilot_settings (shop_id, enabled, mode, holdout_share, updated_at, last_run_at) VALUES (?, 1, 'auto', ?, ?, ?)`,
+    ).run(shopId, DEMO_HOLDOUT, tsAt(30 * DAY), tsAt(2 * DAY));
+    const insLog = db.prepare(
+      'INSERT INTO autopilot_log (shop_id, action, title, reason, experiment_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    insLog.run(shopId, 'settings', 'Autopilot eingeschaltet (startet Tests selbst)', 'durch Demo-Konto', null, tsAt(30 * DAY));
+    insLog.run(
       shopId,
-      'Echter Lagerbestand am Kauf-Button',
-      'scarcity',
-      JSON.stringify({ maxStock: 10, template: 'Nur noch {stock} Stück auf Lager' }),
-      'draft',
-      tsAt(DAY),
-      null,
-      null,
+      'test_started',
+      'Test gestartet: Anchoring (Referenzpreis)',
+      'Grundlage: „Referenzpreise für preissensible Besucher:innen sichtbar machen“ – rund ein Viertel der Besucher:innen zeigt preissensibles Verhalten.',
+      anchorId,
+      tsAt(29 * DAY),
+    );
+    insLog.run(
+      shopId,
+      'test_started',
+      'Test gestartet: Social Proof (Kaufzahlen)',
+      'Grundlage: „Warenkorbabbrüche mit Social Proof adressieren“ – über 70 % der Warenkörbe werden abgebrochen.',
+      spId,
+      tsAt(29 * DAY),
+    );
+    insLog.run(
+      shopId,
+      'stopped_inconclusive',
+      'Test ohne Effekt beendet: Autopilot: Anchoring (Referenzpreis)',
+      'Die geplante Stichprobe ist erreicht, ein Effekt von mindestens 20 % relativ war nicht messbar. Der nächste Test kann starten.',
+      anchorId,
+      tsAt(2 * DAY),
     );
 
     // --- Besucher & Ereignisse -------------------------------------------
@@ -167,6 +193,9 @@ export function createDemoShop(orgId: number): ShopRow {
       const visitorId = id();
       const sessionCount = a.key === 'bounce' ? 1 : 1 + Math.floor(r() * (a.key === 'explorer' ? 3 : 2));
       let t = 1 + r() * 28 * DAY + DAY; // Startzeitpunkt vor bis zu 29 Tagen
+      // Dauerhafte Kontrollgruppe: sieht nie Nudges (Grundlage des Uplift-Nachweises)
+      const holdout = r() < DEMO_HOLDOUT;
+      let groupSent = false;
       let variantSP: 'control' | 'treatment' | null = null;
       let variantAnchor: 'control' | 'treatment' | null = null;
       let bought = false;
@@ -178,6 +207,10 @@ export function createDemoShop(orgId: number): ShopRow {
           t -= 20_000 + r() * 60_000;
         };
 
+        if (!groupSent) {
+          ev('group', null, null, null, null, holdout ? 'holdout' : 'exposed');
+          groupSent = true;
+        }
         ev('page_view', r() < 0.5 ? 'home' : 'category');
         if (a.key === 'bounce') {
           ev('scroll_depth', 'home', null, 10 + r() * 20);
@@ -193,10 +226,12 @@ export function createDemoShop(orgId: number): ShopRow {
           ev('page_view', 'product', p.sku);
           const sku = p.sku;
           // Experimente laufen auf Produktseiten; Zuweisung stabil je Besucher
-          if (variantSP === null) variantSP = r() < 0.5 ? 'control' : 'treatment';
-          if (variantAnchor === null) variantAnchor = r() < 0.5 ? 'control' : 'treatment';
-          ev('exposure', 'product', sku, null, spId, variantSP);
-          ev('exposure', 'product', sku, null, anchorId, variantAnchor);
+          if (!holdout) {
+            if (variantSP === null) variantSP = r() < 0.5 ? 'control' : 'treatment';
+            if (variantAnchor === null) variantAnchor = r() < 0.5 ? 'control' : 'treatment';
+            ev('exposure', 'product', sku, null, spId, variantSP);
+            ev('exposure', 'product', sku, null, anchorId, variantAnchor);
+          }
           ev('scroll_depth', 'product', sku, a.key === 'explorer' ? 70 + r() * 30 : 25 + r() * 50);
           if ((a.key === 'hesitant' && r() < 0.7) || (a.key === 'price_sensitive' && r() < 0.35)) {
             ev('hesitation', 'product', sku, 2000 + r() * (a.key === 'price_sensitive' ? 7000 : 4000));

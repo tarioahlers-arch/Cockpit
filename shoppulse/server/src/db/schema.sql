@@ -197,3 +197,64 @@ CREATE TABLE IF NOT EXISTS auth_attempts (
   count INTEGER NOT NULL,
   reset_at INTEGER NOT NULL            -- Unix-Zeit in ms
 );
+
+-- ---------------------------------------------------------------------------
+-- Growth-Autopilot
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS autopilot_settings (
+  shop_id INTEGER PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  mode TEXT NOT NULL DEFAULT 'suggest',        -- suggest (Tests nur vorschlagen) | auto (Tests selbst starten)
+  holdout_share REAL NOT NULL DEFAULT 0.05,    -- dauerhafte Kontrollgruppe ohne Nudges (Uplift-Nachweis)
+  allowed_nudges TEXT NOT NULL DEFAULT '["social_proof","scarcity","anchoring"]',
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TEXT,
+  last_run_at TEXT
+);
+
+-- Ausgerollte Gewinner: gelten fuer alle Besucher:innen ausser der Kontrollgruppe
+CREATE TABLE IF NOT EXISTS nudge_rollouts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shop_id INTEGER NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  nudge_type TEXT NOT NULL,
+  page_type TEXT NOT NULL,
+  config TEXT NOT NULL DEFAULT '{}',
+  source_experiment_id INTEGER REFERENCES experiments(id) ON DELETE SET NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  ended_at TEXT
+);
+
+-- Jede Aktion des Autopiloten mit Begruendung – nachvollziehbar und (wo moeglich) umkehrbar
+CREATE TABLE IF NOT EXISTS autopilot_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shop_id INTEGER NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,          -- test_started | test_proposed | rollout | stopped_loser | stopped_inconclusive | guardrail_stop | skipped
+  title TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  experiment_id INTEGER REFERENCES experiments(id) ON DELETE SET NULL,
+  rollout_id INTEGER REFERENCES nudge_rollouts(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  undone_at TEXT,
+  undone_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_autopilot_log_shop ON autopilot_log(shop_id, id);
+
+-- ---------------------------------------------------------------------------
+-- KI-Berater: Verbrauch je Organisation (Kosten traegt der Plattformbetreiber)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ai_usage (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  shop_id INTEGER REFERENCES shops(id) ON DELETE SET NULL,
+  month TEXT NOT NULL,           -- YYYY-MM
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_org_month ON ai_usage(org_id, month);

@@ -18,6 +18,64 @@ begründet, *warum* sie wirkt.
 
 | **E) Lager & Verfügbarkeit** | Lagerbestände aus beliebig vielen Tools, z. B. Onlineshop, ERP und Kassensystem der Filialen. Jedes Tool ist eine eigene **Quelle** mit eigenen Lagerorten, so überschreiben sich die Systeme nie gegenseitig. Kund:innen sehen im Shop eine **Verfügbarkeitsanzeige**, auf Wunsch mit Filialbeständen. |
 
+| **F) Growth-Autopilot** | Führt den Kreislauf Empfehlung → A/B-Test → Auswertung → Rollout selbstständig. Er rollt nur statistisch gesicherte Gewinner aus, stoppt schädliche Tests sofort und protokolliert jede Aktion mit Begründung. Eine **dauerhafte Kontrollgruppe** weist den Mehrumsatz in Euro nach. |
+| **G) KI-Berater** | Fragen in Klartext („Warum ist die Conversion letzte Woche gefallen?“). Claude beantwortet sie ausschließlich mit den echten Shop-Daten, die es über schreibgeschützte Werkzeuge abruft. Für Kund:innen inklusive, die Kosten trägt der Plattformbetreiber. |
+
+### Growth-Autopilot
+
+**Freigabe und Modus**
+- **Einmalige Freigabe:** Wer im Shop Bearbeitungsrechte hat, schaltet den Autopiloten ein.
+- **Zwei Modi:**
+  - **Vorschlagen:** Tests werden als Entwurf angelegt und warten auf den Start.
+  - **Automatisch:** Der Autopilot startet Tests selbst.
+
+**Ablauf** (alle 15 Minuten oder per „Jetzt ausführen“):
+1. **Eigene laufende Tests auswerten:**
+   - **Sicherheitsstopp:** Kostet Variante B signifikant Conversion (p < 0,01), endet der Test sofort und nichts wird ausgerollt.
+   - **Gewinner:** Der Nudge wird für alle Besucher:innen außer der Kontrollgruppe aktiviert (Rollout).
+   - **Verlierer oder kein Effekt:** Der Test wird beendet.
+2. **Nächsten Test wählen,** falls keiner läuft. Genommen wird die oberste Empfehlung mit einem freigegebenen Nudge, der weder läuft, noch ausgerollt ist, noch in den letzten 90 Tagen getestet wurde.
+3. **Protokollieren:** Jede Aktion landet mit Begründung im Protokoll. Rollouts sowie laufende oder vorgeschlagene Tests lassen sich dort rückgängig machen.
+
+**Grenzen**
+- Preise ändert der Autopilot **nie**. Sie bleiben Empfehlungen zur Freigabe.
+- Decoy-Tests brauchen eine Sortimentsgestaltung durch den Shop und bleiben manuell.
+- Es läuft höchstens ein Autopilot-Test gleichzeitig.
+
+**Uplift-Nachweis und Wirkungsbericht**
+- **Kontrollgruppe:** Standardmäßig sehen 5 % der Besucher:innen dauerhaft keine Nudges, einstellbar von 2–30 %. Die Zuordnung ist stabil je Besucher:in und wird mit dem Ereignis `group` erfasst.
+- **Berechnung:** Mehrumsatz = (Umsatz je Besucher:in mit Nudges − Umsatz je Besucher:in der Kontrollgruppe) × Besucher:innen mit Nudges. Dazu kommt ein 95-%-Konfidenzintervall (Welch).
+- **Abrechnung:** Grundlage für den Performance-Anteil (`SHOPPULSE_PERFORMANCE_FEE_PCT`, Standard 10 %) ist nur die **Untergrenze** des Intervalls. Ist der Mehrumsatz nicht gesichert, wird nichts abgerechnet.
+- **Monatsbericht:** Unter `GET /api/shops/:id/uplift?month=JJJJ-MM`.
+
+### KI-Berater
+
+**Technik**
+- Modell: `claude-opus-5` über das offizielle Anthropic-SDK, mit adaptivem Denken und Effort `medium` (Chat-Antworten brauchen keine maximale Tiefe).
+- Prompt-Caching für System-Prompt und Werkzeuge.
+- **Automatischer Fallback:** `fallbacks: "default"` ist aktiviert. Lehnt das Modell eine Anfrage ab, beantwortet Anthropic sie serverseitig mit dem empfohlenen Ersatzmodell.
+
+**Datenzugriff**
+- **8 schreibgeschützte Werkzeuge:** Übersicht, Tageswerte, Zeitraumvergleich, Produkte, A/B-Tests, Pricing, Lager, Autopilot.
+- **Mandantentrennung:** Die Werkzeuge haben **keinen** Shop-Parameter. Der Server bindet sie an den Shop, dessen Eigentum vorher geprüft wurde. Das Modell kann deshalb nie auf Daten anderer Shops zugreifen.
+- **Rollen:** Auch Konten mit Lesezugriff dürfen fragen.
+
+**Kostenkontrolle für den Betreiber**
+- **Monatsbudget je Organisation:** `SHOPPULSE_AI_MONTHLY_BUDGET_USD`, Standard 25 USD.
+- **Fragenlimit je Person und Stunde:** `SHOPPULSE_AI_QUESTIONS_PER_HOUR`, Standard 30.
+- **Pro Anfrage:** höchstens 8 Werkzeug-Runden und eine Frage gleichzeitig je Person.
+- **Erfassung:** Der Verbrauch jeder Frage wird mit Tokens und Kosten in `ai_usage` gespeichert.
+- **Empfehlung:** In der Anthropic Console zusätzlich ein Ausgabenlimit setzen.
+
+**Konfiguration**
+- `ANTHROPIC_API_KEY` ist im Produktivmodus Pflicht, denn der Berater ist für alle Kund:innen inklusive.
+- Modell und Effort lassen sich über `SHOPPULSE_AI_MODEL` und `SHOPPULSE_AI_EFFORT` ändern.
+
+**Tests**
+- **Automatische Tests:** Sie nutzen einen simulierten Claude-Client, es entstehen keine Kosten.
+- **Ende-zu-Ende:** Getestet gegen einen lokalen API-Nachbau über das echte SDK: Beta-Header, Fallback, Werkzeugschleife.
+- **Nicht getestet:** Ein Aufruf der echten Claude-API wurde in der Entwicklungsumgebung nicht gemacht, weil kein API-Schlüssel vorhanden war.
+
 ### Lagerbestände integrieren
 
 | Quelle | Funktionsweise | Geeignet für |
@@ -164,6 +222,7 @@ Mit `NODE_ENV=production` liefert der Server API und Dashboard unter **einer** A
 - Der Server setzt HSTS und eine strikte Content-Security-Policy.
 
 Er **startet nicht**, wenn eine dieser Einstellungen fehlt:
+- `ANTHROPIC_API_KEY`
 - `SHOPPULSE_SECRET_KEY`
 - `SHOPPULSE_PUBLIC_URL` (https)
 - `SHOPPULSE_SMTP_URL`
@@ -258,6 +317,10 @@ Organisation und sind deshalb für niemanden sichtbar. Sie werden bewusst per Be
 | `NODE_ENV` | `production` aktiviert den Produktivmodus (Konfigurationsprüfung, Secure-Cookie, HSTS, Auslieferung des Dashboards) | – |
 | `SHOPPULSE_PUBLIC_URL` | Öffentliche Adresse (Links in Einladungs- und Reset-Mails) | `http://localhost:5174` |
 | `SHOPPULSE_SECRET_KEY` / `SHOPPULSE_SECRET_KEY_PREVIOUS` | Schlüssel für Zugangsdaten (32 Byte hex/base64) bzw. frühere Schlüssel zur Rotation | Entwicklungsschlüssel in `server/data/secret.key` |
+| `ANTHROPIC_API_KEY` | Schlüssel für den KI-Berater (Plattformbetreiber; im Produktivmodus Pflicht) | – |
+| `SHOPPULSE_AI_MODEL` / `SHOPPULSE_AI_EFFORT` | Modell und Denktiefe des KI-Beraters | `claude-opus-5` / `medium` |
+| `SHOPPULSE_AI_MONTHLY_BUDGET_USD` / `SHOPPULSE_AI_QUESTIONS_PER_HOUR` | Kostenbremse je Organisation bzw. Person | `25` / `30` |
+| `SHOPPULSE_PERFORMANCE_FEE_PCT` | Performance-Anteil am nachgewiesenen Mehrumsatz (Untergrenze) | `10` |
 | `SHOPPULSE_SMTP_URL` / `SHOPPULSE_MAIL_FROM` | Mailversand (`smtps://user:pass@host:465`); ohne Angabe stehen Mails im Server-Log | – |
 | `SHOPPULSE_COOKIE_SECURE` | `1` erzwingt das `Secure`-Cookie auch außerhalb des Produktivmodus | aus (im Produktivmodus an) |
 | `SHOPPULSE_TRUST_PROXY` | Express-`trust proxy` hinter Load Balancer/Reverse Proxy (für korrekte IP und HTTPS-Erkennung) | aus |
@@ -270,6 +333,12 @@ Im Dashboard auf **Test-Shop ↗** klicken, im Banner „Einverstanden“ wähle
 auf dem Kauf-Button verweilen lassen und den Kauf abschließen. Die Ereignisse erscheinen nach
 spätestens 60 s im Dashboard. Beim Demo-Shop läuft ein Social-Proof-Test: Je nach
 zugewiesener Variante erscheint über dem Button z. B. „11× in den letzten 48 Stunden gekauft“.
+
+**Autopilot in der Demo**
+- **Stand:** Er ist eingeschaltet. Der Anchoring-Test endete ohne Effekt, der Social-Proof-Test läuft.
+- **Kontrollgruppe:** Sie ist auf 15 % gesetzt, damit die Demo-Daten für den Nachweis reichen.
+- **„Jetzt ausführen“:** Rollt Social Proof als Gewinner aus und startet den nächsten Test (Scarcity).
+- **Uplift-Nachweis:** Er zeigt mit den Demo-Daten ehrlich „Trend positiv, noch nicht gesichert“, die Abrechnungsbasis bleibt also 0 €.
 
 Die Demo-Lagerintegration besteht aus zwei „Tools“:
 - **ERP-Export als CSV-Feed:** Der Demo-Server stellt ihn selbst bereit, der Scheduler ruft ihn echt per HTTP ab.

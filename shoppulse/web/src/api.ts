@@ -215,6 +215,52 @@ export interface IngestResult {
   parseErrors?: string[];
 }
 
+export interface UpliftReport {
+  month?: string;
+  from: string;
+  to: string;
+  exposed: { visitors: number; buyers: number; revenue: number; conversionRate: number; revenuePerVisitor: number };
+  holdout: { visitors: number; buyers: number; revenue: number; conversionRate: number; revenuePerVisitor: number };
+  enoughData: boolean;
+  conversion: { relativeUplift: number | null; pValue: number; significant: boolean };
+  revenuePerVisitorDiff: number;
+  revenuePerVisitorCi95: [number, number];
+  incrementalRevenue: number;
+  incrementalRevenueCi95: [number, number];
+  proven: boolean;
+  billingBasis: number;
+  feePct: number;
+  fee: number;
+  summary: string;
+  rollouts: { id: number; nudge_type: string; page_type: string; started_at: string; ended_at: string | null; active: number }[];
+  concludedTests: { id: number; name: string; nudge_type: string; stopped_at: string }[];
+}
+
+export interface AutopilotData {
+  settings: { enabled: number; mode: 'suggest' | 'auto'; holdout_share: number; allowed_nudges: NudgeType[]; last_run_at: string | null; updated_at: string | null };
+  availableNudges: NudgeType[];
+  log: { id: number; action: string; title: string; reason: string; created_at: string; undone_at: string | null; experiment_id: number | null; rollout_id: number | null; undoable: number }[];
+  rollouts: { id: number; nudge_type: string; page_type: string; active: number; started_at: string; ended_at: string | null }[];
+  runningTest: { id: number; name: string; nudge_type: string; status: string; started_at: string | null } | null;
+  upliftMonthToDate: UpliftReport;
+}
+
+export interface AiStatus {
+  configured: boolean;
+  model: string;
+  monthlyBudgetUsd: number;
+  usedThisMonthUsd: number;
+  budgetUsedShare: number;
+  questionsLastHour: number;
+  questionsPerHour: number;
+}
+
+export interface AdvisorAnswer {
+  answer: string;
+  toolsUsed: string[];
+  costUsd: number;
+}
+
 /** Wird bei 401 ausgeloest; App.tsx zeigt dann die Anmeldung. */
 export const AUTH_EVENT = 'shoppulse:unauthorized';
 
@@ -290,6 +336,16 @@ export const api = {
   importOffers: (shopId: number, offers: Record<string, unknown>[]) =>
     post<{ imported: number; matched: number; unmatched: number; skipped: number }>(`/shops/${shopId}/competitor-offers`, { offers }),
   matchOffer: (offerId: number, productId: number | null) => patch(`/competitor-offers/${offerId}`, { productId }),
+
+  autopilot: (shopId: number) => request<AutopilotData>(`/shops/${shopId}/autopilot`),
+  saveAutopilot: (shopId: number, data: Record<string, unknown>) =>
+    request<{ ok: true }>(`/shops/${shopId}/autopilot`, { method: 'PUT', body: JSON.stringify(data) }),
+  runAutopilot: (shopId: number) => post<{ ran: boolean; message: string; actions: { action: string; title: string }[] }>(`/shops/${shopId}/autopilot/run`, {}),
+  undoAutopilot: (logId: number) => post<{ ok: true }>(`/autopilot/log/${logId}/undo`, {}),
+  uplift: (shopId: number, month: string) => request<UpliftReport>(`/shops/${shopId}/uplift?month=${month}`),
+  aiStatus: () => request<AiStatus>('/ai/status'),
+  ask: (shopId: number, question: string, history: { role: 'user' | 'assistant'; content: string }[]) =>
+    post<AdvisorAnswer>(`/shops/${shopId}/advisor`, { question, history }),
 
   sourceTypes: () => request<SourceTypeDef[]>('/inventory/source-types'),
   inventory: (shopId: number) => request<InventoryOverview>(`/shops/${shopId}/inventory`),

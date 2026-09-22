@@ -30,7 +30,8 @@ export const shopifyConnector: Connector = {
     { key: 'accessToken', label: 'Admin-API-Access-Token', secret: true, placeholder: 'shpat_…' },
   ],
   async fetchSnapshot(config, fetchImpl) {
-    const domain = config.shopDomain.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const domain = normalizeShopifyDomain(config.shopDomain);
+    if (!domain) throw new Error('Shop-Domain muss die Form <name>.myshopify.com haben.');
     const url = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
     const locations = new Map<string, LocationInput>();
     const levels: LevelInput[] = [];
@@ -63,3 +64,9 @@ export const shopifyConnector: Connector = {
     return { locations: [...locations.values()], levels } satisfies InventorySnapshot;
   },
 };
+
+/** Nur *.myshopify.com – die Admin-API gibt es nur dort; verhindert, dass der Token an Fremdhosts geht. */
+export function normalizeShopifyDomain(raw: string): string | null {
+  const d = String(raw ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(d) ? d : null;
+}

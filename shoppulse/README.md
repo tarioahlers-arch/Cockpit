@@ -48,7 +48,7 @@ Regeln für die Anzeige:
 
 **Grenzen:**
 - **Nicht live geprüft:** Die Connectoren für Shopify, Shopware und WooCommerce sind gegen simulierte API-Antworten getestet, nicht gegen echte Shops. Vor dem Produktivbetrieb bitte mit einem Test-Zugang prüfen.
-- **Zugangsdaten im Klartext:** Sie liegen in der SQLite-Datenbank. Im Dashboard werden sie maskiert, für den Produktivbetrieb ist aber ein Secret-Store nötig.
+- **Zugangsdaten:** Siehe „Noch offen für den Produktivbetrieb“ im Abschnitt Sicherheit.
 - **Firmenproxy:** Der Abruf über einen Firmenproxy (`HTTPS_PROXY`) wird noch nicht unterstützt.
 - **Reservierungen:** Reservierungen und Zulauf (bestellte Ware) werden nicht separat geführt. Maßgeblich ist der von der Quelle gemeldete verfügbare Bestand.
 
@@ -73,6 +73,62 @@ Nudges zeigen nur echte Daten, sonst erscheinen sie gar nicht:
   IP-Adressen, kein User-Agent, keine Cookies von Drittanbietern und keine personenbezogenen
   Daten gespeichert.
 - **Widerruf:** `ShopPulse.consent(false)` löscht die lokale ID.
+
+## Sicherheit & Mandantentrennung
+
+Jede Organisation sieht ausschließlich ihre eigenen Shops und Daten.
+
+| Zugang | Wer | Wie ist er auf einen Shop begrenzt? |
+|---|---|---|
+| **Dashboard** (`/api/...`) | angemeldete Nutzer:innen | Login-Session, der Shop muss zur eigenen Organisation gehören |
+| **Snippet** (`/snippet.js`, `/api/collect`, `/api/public/*`) | Besucher:innen der Shops | ausschließlich über den öffentlichen Shop-Key |
+| **Push-API** (`/api/inventory/push`) | Fremdsysteme (ERP, Kasse …) | ausschließlich über den Push-Token der Quelle |
+| **Test-Shop-Seite** (`/demo-shop/:id`) | Demo-Shops: alle; echte Shops: nur die eigene Organisation | Session-Prüfung |
+
+### Login und Zugriffsprüfung
+
+- **Passwörter:** mit scrypt und Salz gehasht.
+- **Sessions:** Das Session-Token liegt als HttpOnly-Cookie mit `SameSite=Strict` im Browser. In der Datenbank steht nur sein SHA-256-Hash. Sessions laufen nach 7 Tagen ab, Abmelden macht sie sofort ungültig.
+- **Schutz vor Durchprobieren:** höchstens 10 Fehlversuche pro IP und E-Mail in 15 Minuten, danach wird der Login gesperrt.
+- **Eigentumsprüfung:** Jede Dashboard-Route holt Shops nur über `ownedShop()` (`server/src/auth/index.ts`), also gefiltert auf die eigene Organisation. Ressourcen mit eigener ID (Experiment, Produkt, Angebot, Quelle, Lagerort) werden zusätzlich gegen ihren Shop geprüft.
+- **Fremde Daten liefern `404`**, nicht `403`. Die Antwort verrät nicht, ob es die ID gibt.
+
+### Tokens, CSRF und CORS
+
+- **Push-Tokens:** Sie werden nur beim Erzeugen einmal angezeigt, gespeichert ist nur der Hash. Neu erzeugen macht den alten Token sofort ungültig.
+- **Zugangsdaten** zu Shopify, Shopware usw. werden in Antworten maskiert.
+- **CSRF:** Schreibende Dashboard-Anfragen brauchen zusätzlich zum `SameSite=Strict`-Cookie den Header `X-Requested-With: ShopPulse`.
+- **CORS:** Offen nur für die öffentlichen Shop-Endpunkte, und dort ohne Cookies. Die Dashboard-API gibt nur Origins aus `SHOPPULSE_DASHBOARD_ORIGINS` frei. Ohne diese Einstellung gibt es gar keine Freigabe, das Dashboard läuft dann same-origin bzw. über den Proxy.
+
+### Schutz vor Anfragen an interne Adressen (SSRF)
+
+Abrufe zu Fremdsystemen, also CSV-Feeds, Shopware und WooCommerce, dürfen nur **öffentliche HTTPS-Adressen** erreichen. Die Adresse wird zweimal geprüft: beim Anlegen der Quelle und vor jedem Abruf, jeweils nach der DNS-Auflösung. Gesperrt sind:
+- interne Netze
+- localhost
+- Link-local-Adressen, darunter Cloud-Metadaten wie `169.254.169.254`
+- Weiterleitungen auf solche Ziele
+
+Weitere Regeln:
+- **Shopify** ist nur über `*.myshopify.com` anbindbar.
+- **Grenzen je Abruf:** höchstens 20 MB Antwort und 30 s Timeout.
+- **Einzige Ausnahme:** der vom Server selbst bereitgestellte ERP-Feed eines Demo-Shops.
+
+### Automatische Tests
+
+`server/src/security/isolation.test.ts` legt zwei Organisationen mit vollständigen Daten an. Organisation B versucht dann über jeden Dashboard-Endpunkt, Daten von A zu lesen, zu ändern oder zu löschen. Erwartet wird jedes Mal `404`. Anschließend prüft der Test, dass die Daten von A unverändert sind. Weitere Tests decken ab:
+- Anfragen ohne Anmeldung (`401`) und ohne CSRF-Header (`403`)
+- Push-Token von B, Tokenrotation und Token-Sichtbarkeit
+- CORS, SSRF sowie Login und Logout
+
+Stichprobe: Wurde testweise eine einzelne Eigentumsprüfung entfernt, schlug der Test fehl.
+
+### Noch offen für den Produktivbetrieb
+
+- **Ein Konto pro Organisation:** Weitere Mitglieder einladen, Rollen und Passwort-Reset per E-Mail sind noch nicht umgesetzt.
+- **Zugangsdaten:** Zugangsdaten zu Fremdsystemen liegen unverschlüsselt in SQLite. Nötig ist ein Secret-Store oder Verschlüsselung mit einem Schlüssel außerhalb der Datenbank.
+- **HTTPS:** Betrieb nur hinter HTTPS, mit `SHOPPULSE_COOKIE_SECURE=1` und `SHOPPULSE_TRUST_PROXY`.
+- **Brute-Force-Zähler:** Er liegt im Arbeitsspeicher. Bei mehreren Server-Instanzen braucht es einen gemeinsamen Speicher (z. B. Redis).
+- **Rest-Risiko DNS-Rebinding:** Zwischen Prüfung und Verbindung kann sich die DNS-Auflösung theoretisch ändern. Abhilfe wäre, auf die geprüfte IP zu verbinden, oder ein Egress-Proxy mit Sperrliste.
 
 ## Architektur
 
@@ -117,9 +173,6 @@ Anwendungen im Repository.
 cd shoppulse
 npm install
 
-# optional: Demo-Shop mit Beispieldaten anlegen (geht auch per Button im UI)
-npm run seed:demo
-
 # Terminal 1: API auf http://localhost:4100
 npm run dev:server
 
@@ -131,6 +184,12 @@ npm test
 ```
 
 Die SQLite-Datenbank wird beim ersten Start unter `server/data/shoppulse.db` angelegt.
+Im Dashboard zuerst **„Konto erstellen“** wählen. Das legt die Organisation an. Danach
+lässt sich der Demo-Shop per Button laden, alternativ per `npm run seed:demo -- <E-Mail>`.
+
+**Daten aus einer älteren Version (vor der Anmeldung):** Bestehende Shops gehören noch keiner
+Organisation und sind deshalb für niemanden sichtbar. Sie werden bewusst per Befehl zugeordnet:
+`npm run assign-shops -- <E-Mail> [Shop-ID …]`.
 
 | Variable | Zweck | Default |
 |---|---|---|
@@ -138,6 +197,11 @@ Die SQLite-Datenbank wird beim ersten Start unter `server/data/shoppulse.db` ang
 | `SHOPPULSE_DATA_DIR` / `SHOPPULSE_DB` | Speicherort der Datenbank | `server/data/shoppulse.db` |
 | `SHOPPULSE_CACHE_TTL_MS` | Wie lange Dashboard-Auswertungen Rohereignisse cachen | `60000` |
 | `SHOPPULSE_DISABLE_SCHEDULER` | `1` schaltet den automatischen Lagerabgleich ab | – |
+| `SHOPPULSE_DASHBOARD_ORIGINS` | Kommagetrennte Origins, die die Dashboard-API per CORS nutzen dürfen | keine (nur same-origin) |
+| `SHOPPULSE_COOKIE_SECURE` | `1` setzt das Session-Cookie nur über HTTPS (Pflicht im Produktivbetrieb) | aus |
+| `SHOPPULSE_TRUST_PROXY` | Express-`trust proxy` hinter Load Balancer/Reverse Proxy (für korrekte IP und HTTPS-Erkennung) | aus |
+| `SHOPPULSE_LOGIN_MAX_ATTEMPTS` | Fehlversuche pro IP/E-Mail in 15 Minuten | `10` |
+| `SHOPPULSE_OUTBOUND_TIMEOUT_MS` / `SHOPPULSE_OUTBOUND_MAX_BYTES` | Grenzen für Abrufe bei Fremdsystemen | `30000` / 20 MB |
 
 ### Snippet ausprobieren
 
@@ -170,7 +234,6 @@ Anzeige dazu sieht man unter `/demo-shop/1?sku=NL-JACKE-02`.
 - **Skalierung:** SQLite und ein kurzer In-Memory-Cache reichen für Pilotkunden. Für den
   Produktivbetrieb laut Konzept: Event-Pipeline (Kafka/Kinesis) → Feature Store →
   voraggregierte Auswertungen.
-- **Kein Login:** Es gibt noch keine Mandanten- und Rollenverwaltung (Roadmap-Phase 4).
 
 ## Roadmap-Bezug
 
@@ -182,5 +245,5 @@ Nächste Schritte:
 
 1. Pilotshops anbinden.
 2. Shopify-App und Shopware-Plugin als One-Click-Integration bauen.
-3. Authentifizierung ergänzen.
+3. Team-Funktionen ergänzen: Mitglieder einladen, Rollen, Passwort-Reset.
 4. Anbindung eines Preisdaten-Anbieters prüfen.

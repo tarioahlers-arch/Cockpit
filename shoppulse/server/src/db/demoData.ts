@@ -52,15 +52,15 @@ const PRODUCTS = [
   { sku: 'NL-SOCKEN-3', ean: null, name: 'Wandersocken 3er-Pack', price: 19.9, cost: 6.5, stock: 140, elasticity: -1.8, baseUnits: 40 },
 ];
 
-export function createDemoShop(): ShopRow {
+export function createDemoShop(orgId: number): ShopRow {
   const r = rng(42);
   const key = 'pk_demo_' + crypto.randomBytes(8).toString('hex');
   const shopId = Number(
     db
       .prepare(
-        `INSERT INTO shops (name, domain, platform, niche, public_key, is_demo) VALUES (?, ?, 'shopify', 'mode', ?, 1)`,
+        `INSERT INTO shops (name, domain, platform, niche, public_key, is_demo, org_id) VALUES (?, ?, 'shopify', 'mode', ?, 1, ?)`,
       )
-      .run('Demo: Modehaus Nordlicht', 'nordlicht-demo.example', key).lastInsertRowid,
+      .run('Demo: Modehaus Nordlicht', 'nordlicht-demo.example', key, orgId).lastInsertRowid,
   );
 
   const now = Date.now();
@@ -254,7 +254,7 @@ export function demoErpCsv(): string {
 function seedInventory(shopId: number) {
   const port = process.env.PORT ?? '4100';
   const insert = db.prepare(
-    'INSERT INTO inventory_sources (shop_id, name, type, config, push_token, sync_interval_min) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO inventory_sources (shop_id, name, type, config, sync_interval_min) VALUES (?, ?, ?, ?, ?)',
   );
   const erpId = Number(
     insert.run(
@@ -262,13 +262,11 @@ function seedInventory(shopId: number) {
       'ERP-Export (CSV-Feed)',
       'csv_url',
       JSON.stringify({ url: `http://localhost:${port}/demo-shop/${shopId}/erp-bestand.csv` }),
-      null,
       15,
     ).lastInsertRowid,
   );
   const posId = Number(
-    insert.run(shopId, 'Kassensystem Filialen (Push-API)', 'push', '{}', 'inv_demo_' + crypto.randomBytes(16).toString('hex'), 15)
-      .lastInsertRowid,
+    insert.run(shopId, 'Kassensystem Filialen (Push-API)', 'push', '{}', 15).lastInsertRowid,
   );
   const source = (id: number) => db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(id) as SourceRow;
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db, type ProductRow, type ShopRow } from './db/index.js';
 import { demoErpCsv } from './db/demoData.js';
+import { userFromRequest } from './auth/index.js';
 
 /**
  * Minimaler Beispiel-Shop, um das Snippet (Tracking, Consent, Nudges) live auszuprobieren:
@@ -45,7 +46,11 @@ demoShopRouter.get('/:shopId/erp-bestand.csv', (req, res) => {
 
 demoShopRouter.get('/:shopId/:step?', (req, res) => {
   const shop = db.prepare('SELECT * FROM shops WHERE id = ?').get(req.params.shopId) as ShopRow | undefined;
-  if (!shop) return res.status(404).send('Shop nicht gefunden');
+  // Echte Shops nur fuer angemeldete Mitglieder der eigenen Organisation – Produkte, Preise und
+  // Bestaende sind Geschaeftsdaten. Demo-Shops (synthetische Daten) sind frei zugaenglich.
+  const user = shop && !shop.is_demo ? userFromRequest(req) : undefined;
+  if (!shop || (!shop.is_demo && user?.orgId !== shop.org_id)) return res.status(404).send('Shop nicht gefunden');
+  res.set('X-Robots-Tag', 'noindex');
   const products = db.prepare('SELECT * FROM products WHERE shop_id = ? ORDER BY id').all(shop.id) as ProductRow[];
   const requested = typeof req.query.sku === 'string' ? products.find((x) => x.sku === req.query.sku) : undefined;
   const p = requested ?? products[0] ?? { sku: 'DEMO-1', name: 'Demo-Produkt', price: 49.9, stock: 4 };

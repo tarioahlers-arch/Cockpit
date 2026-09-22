@@ -2,6 +2,24 @@ import { db } from '../db/index.js';
 import { CONNECTORS } from './connectors/index.js';
 import { ingestInventory, type IngestResult, type SourceRow } from './ingest.js';
 import type { FetchLike, SourceType } from './types.js';
+import { guardedFetch } from '../security/outbound.js';
+
+/**
+ * Einzige Ausnahme vom SSRF-Schutz: der vom Server selbst bereitgestellte ERP-Feed eines
+ * Demo-Shops (localhost, exakt der Pfad dieses Shops).
+ */
+function isOwnDemoFeed(source: SourceRow, config: Record<string, string>): boolean {
+  if (source.type !== 'csv_url' || !config.url) return false;
+  const shop = db.prepare('SELECT is_demo FROM shops WHERE id = ?').get(source.shop_id) as { is_demo: number } | undefined;
+  if (!shop?.is_demo) return false;
+  try {
+    const u = new URL(config.url);
+    const port = process.env.PORT ?? '4100';
+    return u.protocol === 'http:' && u.hostname === 'localhost' && u.port === port && u.pathname === `/demo-shop/${source.shop_id}/erp-bestand.csv` && !u.search;
+  } catch {
+    return false;
+  }
+}
 
 const running = new Set<number>();
 
@@ -21,7 +39,8 @@ export async function runSync(
     db.prepare(`INSERT INTO inventory_sync_runs (source_id, status) VALUES (?, 'running')`).run(sourceId).lastInsertRowid,
   );
   try {
-    const snapshot = await connector.fetchSnapshot(JSON.parse(source.config), opts.fetchImpl ?? fetch);
+    const config = JSON.parse(source.config) as Record<string, string>;
+    const snapshot = await connector.fetchSnapshot(config, guardedFetch({ allowPrivate: isOwnDemoFeed(source, config) }, opts.fetchImpl ?? fetch));
     const result = ingestInventory(source, snapshot, 'snapshot', { force: opts.force });
     finish(source.id, runId, result.status, result.items, result.message);
     return result;

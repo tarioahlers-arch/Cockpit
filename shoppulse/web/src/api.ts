@@ -171,7 +171,7 @@ export interface InventorySource {
   name: string;
   type: SourceTypeDef['type'];
   config: Record<string, string>;
-  push_token: string | null;
+  push_token_hint: string | null;
   sync_interval_min: number;
   active: number;
   last_sync_at: string | null;
@@ -215,21 +215,42 @@ export interface IngestResult {
   parseErrors?: string[];
 }
 
+/** Wird bei 401 ausgeloest; App.tsx zeigt dann die Anmeldung. */
+export const AUTH_EVENT = 'shoppulse:unauthorized';
+
+const HEADERS = { 'Content-Type': 'application/json', 'X-Requested-With': 'ShopPulse' };
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    credentials: 'same-origin',
+    headers: { ...HEADERS, ...(init?.headers ?? {}) },
   });
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => ({}));
+  if (res.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event(AUTH_EVENT));
   if (!res.ok) throw new Error(body.error ?? `Fehler ${res.status}`);
   return body as T;
+}
+
+export interface Me {
+  id: number;
+  orgId: number;
+  email: string;
+  name: string;
+  role: string;
+  orgName: string;
 }
 
 const post = <T>(path: string, data: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(data) });
 const patch = <T>(path: string, data: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(data) });
 
 export const api = {
+  me: () => request<Me>('/auth/me'),
+  login: (email: string, password: string) => post<{ ok: true }>('/auth/login', { email, password }),
+  register: (data: { email: string; password: string; name: string; organization: string }) => post<{ ok: true }>('/auth/register', data),
+  logout: () => post<{ ok: true }>('/auth/logout', {}),
+
   listShops: () => request<Shop[]>('/shops'),
   createShop: (data: { name: string; domain: string; platform: string; niche: string }) => post<Shop>('/shops', data),
   createDemoShop: () => post<Shop>('/shops/demo', {}),
@@ -252,7 +273,9 @@ export const api = {
 
   sourceTypes: () => request<SourceTypeDef[]>('/inventory/source-types'),
   inventory: (shopId: number) => request<InventoryOverview>(`/shops/${shopId}/inventory`),
-  createSource: (shopId: number, data: Record<string, unknown>) => post<InventorySource>(`/shops/${shopId}/inventory/sources`, data),
+  createSource: (shopId: number, data: Record<string, unknown>) =>
+    post<InventorySource & { pushToken?: string }>(`/shops/${shopId}/inventory/sources`, data),
+  regenerateToken: (id: number) => post<{ pushToken: string; push_token_hint: string }>(`/inventory/sources/${id}/token`, {}),
   updateSource: (id: number, data: Record<string, unknown>) => patch<InventorySource>(`/inventory/sources/${id}`, data),
   deleteSource: (id: number) => request<void>(`/inventory/sources/${id}`, { method: 'DELETE' }),
   syncSource: (id: number, force = false) => rawPost(`/inventory/sources/${id}/sync`, { force }),
@@ -265,7 +288,8 @@ export const api = {
 
 /** Wie post, liefert aber auch bei 409/502 das Ergebnis (Sicherheitsstopp, Fehlermeldung) zurueck. */
 async function rawPost(path: string, data: unknown): Promise<IngestResult> {
-  const res = await fetch(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const res = await fetch(`/api${path}`, { method: 'POST', credentials: 'same-origin', headers: HEADERS, body: JSON.stringify(data) });
+  if (res.status === 401) window.dispatchEvent(new Event(AUTH_EVENT));
   const body = await res.json().catch(() => ({}));
   if (!res.ok && !body.status) return { status: 'error', message: body.error ?? `Fehler ${res.status}` };
   return body as IngestResult;

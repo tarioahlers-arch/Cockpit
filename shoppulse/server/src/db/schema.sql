@@ -141,3 +141,30 @@ CREATE TABLE IF NOT EXISTS inventory_settings (
   max_age_hours INTEGER NOT NULL DEFAULT 24,       -- aeltere Daten werden Kund:innen nicht gezeigt
   show_store_availability INTEGER NOT NULL DEFAULT 1
 );
+
+-- ---------------------------------------------------------------------------
+-- Mandanten & Anmeldung
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS organizations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'owner',   -- owner | member
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Gespeichert wird nur der SHA-256-Hash des Session-Tokens, nie das Token selbst.
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL
+);

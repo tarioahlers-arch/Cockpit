@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { db, getShop, recentEvents, type ExperimentRow } from '../db/index.js';
+import { ownedShop, ownsShop } from '../auth/index.js';
+import { db, recentEvents, type ExperimentRow } from '../db/index.js';
 import { analyzeExperiment } from '../analytics/experiments.js';
 import { NUDGES, isNudgeType } from '../analytics/nudges.js';
 
@@ -18,7 +19,7 @@ experimentsRouter.get('/nudges', (_req, res) => {
 });
 
 experimentsRouter.get('/shops/:id/experiments', (req, res) => {
-  const shop = getShop(req.params.id);
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
   const rows = db
     .prepare('SELECT * FROM experiments WHERE shop_id = ? ORDER BY created_at DESC')
@@ -27,7 +28,7 @@ experimentsRouter.get('/shops/:id/experiments', (req, res) => {
 });
 
 experimentsRouter.post('/shops/:id/experiments', (req, res) => {
-  const shop = getShop(req.params.id);
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
   const { name, nudgeType, pageType, config, trafficSplit } = req.body ?? {};
   if (!isNudgeType(nudgeType)) return res.status(400).json({ error: 'Unbekannter Nudge-Typ.' });
@@ -55,7 +56,7 @@ experimentsRouter.post('/shops/:id/experiments', (req, res) => {
 
 experimentsRouter.patch('/experiments/:id', (req, res) => {
   const exp = db.prepare('SELECT * FROM experiments WHERE id = ?').get(req.params.id) as ExperimentRow | undefined;
-  if (!exp) return res.status(404).json({ error: 'Experiment nicht gefunden.' });
+  if (!exp || !ownsShop(req, exp.shop_id)) return res.status(404).json({ error: 'Experiment nicht gefunden.' });
   const { status } = req.body ?? {};
   if (status === 'running' && exp.status === 'draft') {
     db.prepare(`UPDATE experiments SET status = 'running', started_at = datetime('now') WHERE id = ?`).run(exp.id);
@@ -69,7 +70,9 @@ experimentsRouter.patch('/experiments/:id', (req, res) => {
 });
 
 experimentsRouter.delete('/experiments/:id', (req, res) => {
-  const info = db.prepare('DELETE FROM experiments WHERE id = ?').run(req.params.id);
+  const info = db
+    .prepare('DELETE FROM experiments WHERE id = ? AND shop_id IN (SELECT id FROM shops WHERE org_id = ?)')
+    .run(req.params.id, req.user!.orgId);
   if (info.changes === 0) return res.status(404).json({ error: 'Experiment nicht gefunden.' });
   res.status(204).end();
 });

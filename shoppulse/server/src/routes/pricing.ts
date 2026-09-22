@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { db, getShop, type ProductRow } from '../db/index.js';
+import { ownedShop, ownsShop } from '../auth/index.js';
+import { db, type ProductRow } from '../db/index.js';
 import { matchOffer, recommendPrice, type PricePoint } from '../analytics/pricing.js';
 
 export const pricingRouter = Router();
@@ -46,7 +47,7 @@ export function pricingForShop(shopId: number) {
 }
 
 pricingRouter.get('/shops/:id/pricing', (req, res) => {
-  const shop = getShop(req.params.id);
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
   const unmatched = db
     .prepare('SELECT * FROM competitor_offers WHERE shop_id = ? AND matched_product_id IS NULL ORDER BY observed_at DESC LIMIT 100')
@@ -61,7 +62,7 @@ function num(v: unknown): number | null {
 
 /** Produkt anlegen/aktualisieren (Upsert per SKU). */
 pricingRouter.post('/shops/:id/products', (req, res) => {
-  const shop = getShop(req.params.id);
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
   const { sku, name, ean, stock } = req.body ?? {};
   const price = num(req.body?.price);
@@ -81,7 +82,7 @@ pricingRouter.post('/shops/:id/products', (req, res) => {
 /** Preis-/Absatzperiode erfassen (Grundlage fuer die Elastizitaetsschaetzung). */
 pricingRouter.post('/products/:id/history', (req, res) => {
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id) as ProductRow | undefined;
-  if (!product) return res.status(404).json({ error: 'Produkt nicht gefunden.' });
+  if (!product || !ownsShop(req, product.shop_id)) return res.status(404).json({ error: 'Produkt nicht gefunden.' });
   const price = num(req.body?.price);
   const units = num(req.body?.unitsSold);
   const days = num(req.body?.periodDays) ?? 7;
@@ -104,7 +105,7 @@ pricingRouter.post('/products/:id/history', (req, res) => {
  * Jedes Angebot wird per EAN oder Titelaehnlichkeit einem eigenen Produkt zugeordnet (SKU-Matching).
  */
 pricingRouter.post('/shops/:id/competitor-offers', (req, res) => {
-  const shop = getShop(req.params.id);
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
   const offers = Array.isArray(req.body?.offers) ? req.body.offers : null;
   if (!offers || offers.length === 0 || offers.length > 1000) {
@@ -150,7 +151,7 @@ pricingRouter.post('/shops/:id/competitor-offers', (req, res) => {
 /** Manuelle Zuordnung eines Angebots (oder Aufheben mit productId = null). */
 pricingRouter.patch('/competitor-offers/:id', (req, res) => {
   const offer = db.prepare('SELECT * FROM competitor_offers WHERE id = ?').get(req.params.id) as OfferRow | undefined;
-  if (!offer) return res.status(404).json({ error: 'Angebot nicht gefunden.' });
+  if (!offer || !ownsShop(req, offer.shop_id)) return res.status(404).json({ error: 'Angebot nicht gefunden.' });
   const productId = req.body?.productId === null ? null : num(req.body?.productId);
   if (productId !== null) {
     const p = db.prepare('SELECT id FROM products WHERE id = ? AND shop_id = ?').get(productId, offer.shop_id);

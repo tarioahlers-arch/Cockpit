@@ -9,7 +9,8 @@
     "dev:server": "npm run dev -w server",
     "dev:web": "npm run dev -w web",
     "build": "npm run build -w server && npm run build -w web",
-    "seed:demo": "npm run seed:demo -w server",
+    "seed:demo": "npm run seed:demo -w server --",
+    "assign-shops": "npm run assign-shops -w server --",
     "test": "npm run test -w server"
   }
 }

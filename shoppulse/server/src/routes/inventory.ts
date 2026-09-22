@@ -1,6 +1,9 @@
-import { Router, text } from 'express';
+import { Router, text, type Request } from 'express';
+import { ownedShop, ownsShop } from '../auth/index.js';
 import crypto from 'node:crypto';
-import { db, getShop } from '../db/index.js';
+import { db, sha256 } from '../db/index.js';
+import { assertPublicUrl, OutboundBlockedError } from '../security/outbound.js';
+import { normalizeShopifyDomain } from '../inventory/connectors/shopify.js';
 import { CONNECTORS, SOURCE_TYPES } from '../inventory/connectors/index.js';
 import { parseInventoryCsv } from '../inventory/csv.js';
 import { ingestInventory, recomputeProductStock, type SourceRow } from '../inventory/ingest.js';
@@ -9,6 +12,15 @@ import { getAvailability, getSettings } from '../inventory/availability.js';
 import type { LevelInput, SourceType } from '../inventory/types.js';
 
 export const inventoryRouter = Router();
+/** Push-Endpunkt fuer Fremdsysteme: eigene Authentisierung per Token, kein Dashboard-Login. */
+export const inventoryPushRouter = Router();
+
+/** Quelle nur, wenn ihr Shop zur Organisation der angemeldeten Person gehoert. */
+function ownedSource(req: Request): SourceRow | undefined {
+  return db
+    .prepare('SELECT s.* FROM inventory_sources s JOIN shops sh ON sh.id = s.shop_id WHERE s.id = ? AND sh.org_id = ?')
+    .get(Number(req.params.id), req.user?.orgId ?? -1) as SourceRow | undefined;
+}
 
 const MAX_LEVELS = 50_000;
 
@@ -20,8 +32,16 @@ function maskConfig(type: string, config: string): Record<string, string> {
   );
 }
 
+/** Antwortformat ohne Geheimnisse: Zugangsdaten maskiert, vom Push-Token nur die letzten 4 Zeichen. */
 function publicSource(s: SourceRow) {
-  return { ...s, config: maskConfig(s.type, s.config) };
+  const { push_token_hash: _hash, ...rest } = s as SourceRow & { push_token?: unknown };
+  delete (rest as { push_token?: unknown }).push_token;
+  return { ...rest, config: maskConfig(s.type, s.config), push_token_hint: s.push_token_hint };
+}
+
+function newPushToken(): { token: string; hash: string; hint: string } {
+  const token = 'inv_' + crypto.randomBytes(24).toString('base64url');
+  return { token, hash: sha256(token), hint: token.slice(-4) };
 }
 
 function validateConfig(type: SourceType, config: Record<string, unknown>, previous: Record<string, string> = {}) {
@@ -35,24 +55,31 @@ function validateConfig(type: SourceType, config: Record<string, unknown>, previ
     if (!value && !f.optional) return { error: `Feld "${f.label}" fehlt.` };
     if (value) out[f.key] = value;
   }
-  for (const k of ['url', 'baseUrl']) {
-    if (out[k]) {
-      try {
-        const u = new URL(out[k]);
-        if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error();
-      } catch {
-        return { error: `"${out[k]}" ist keine gültige URL.` };
-      }
-    }
+  if (type === 'shopify') {
+    const d = normalizeShopifyDomain(out.shopDomain);
+    if (!d) return { error: 'Shop-Domain muss die Form <name>.myshopify.com haben.' };
+    out.shopDomain = d;
   }
   return { config: out };
+}
+
+/** SSRF-Schutz schon beim Anlegen: nur oeffentliche HTTPS-Adressen (Pruefung erneut bei jedem Abruf). */
+async function checkReachable(type: SourceType, config: Record<string, string>): Promise<string | null> {
+  const url = type === 'csv_url' ? config.url : type === 'shopware' || type === 'woocommerce' ? config.baseUrl : null;
+  if (!url) return null;
+  try {
+    await assertPublicUrl(url);
+    return null;
+  } catch (e) {
+    return e instanceof OutboundBlockedError ? `${url}: ${e.message}` : `${url} ist nicht erreichbar (DNS).`;
+  }
 }
 
 inventoryRouter.get('/inventory/source-types', (_req, res) => res.json(SOURCE_TYPES));
 
 /** Gesamtsicht: Quellen, Lagerorte, Bestand je SKU und Ort, letzte Abgleiche. */
 inventoryRouter.get('/shops/:id/inventory', (req, res) => {
-  const shop = getShop(req.params.id);
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
 
   const sources = db.prepare('SELECT * FROM inventory_sources WHERE shop_id = ? ORDER BY id').all(shop.id) as SourceRow[];
@@ -105,31 +132,48 @@ inventoryRouter.get('/shops/:id/inventory', (req, res) => {
   });
 });
 
-inventoryRouter.post('/shops/:id/inventory/sources', (req, res) => {
-  const shop = getShop(req.params.id);
+inventoryRouter.post('/shops/:id/inventory/sources', async (req, res) => {
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
   const { name, type, config, syncIntervalMin } = req.body ?? {};
   if (!SOURCE_TYPES.some((t) => t.type === type)) return res.status(400).json({ error: 'Unbekannter Quellentyp.' });
   const v = validateConfig(type, config ?? {});
   if ('error' in v) return res.status(400).json({ error: v.error });
   const interval = Math.min(1440, Math.max(5, Number(syncIntervalMin) || 15));
-  const token = type === 'push' ? 'inv_' + crypto.randomBytes(20).toString('hex') : null;
+  const reachable = await checkReachable(type, v.config);
+  if (reachable) return res.status(400).json({ error: reachable });
+  const token = type === 'push' ? newPushToken() : null;
   const label = typeof name === 'string' && name.trim() ? name.trim() : SOURCE_TYPES.find((t) => t.type === type)!.label;
   const info = db
-    .prepare('INSERT INTO inventory_sources (shop_id, name, type, config, push_token, sync_interval_min) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(shop.id, label, type, JSON.stringify(v.config), token, interval);
+    .prepare(
+      'INSERT INTO inventory_sources (shop_id, name, type, config, push_token_hash, push_token_hint, sync_interval_min) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    )
+    .run(shop.id, label, type, JSON.stringify(v.config), token?.hash ?? null, token?.hint ?? null, interval);
   const row = db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(info.lastInsertRowid) as SourceRow;
-  res.status(201).json(publicSource(row));
+  // Der Token wird genau einmal im Klartext ausgeliefert; gespeichert ist nur sein Hash
+  res.status(201).json({ ...publicSource(row), pushToken: token?.token });
 });
 
-inventoryRouter.patch('/inventory/sources/:id', (req, res) => {
-  const source = db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(req.params.id) as SourceRow | undefined;
+/** Neuen Push-Token erzeugen (der alte wird sofort ungueltig); Klartext nur in dieser Antwort. */
+inventoryRouter.post('/inventory/sources/:id/token', (req, res) => {
+  const source = ownedSource(req);
+  if (!source) return res.status(404).json({ error: 'Quelle nicht gefunden.' });
+  if (source.type !== 'push') return res.status(400).json({ error: 'Nur Push-Quellen haben einen Token.' });
+  const token = newPushToken();
+  db.prepare('UPDATE inventory_sources SET push_token_hash = ?, push_token_hint = ? WHERE id = ?').run(token.hash, token.hint, source.id);
+  res.json({ pushToken: token.token, push_token_hint: token.hint });
+});
+
+inventoryRouter.patch('/inventory/sources/:id', async (req, res) => {
+  const source = ownedSource(req);
   if (!source) return res.status(404).json({ error: 'Quelle nicht gefunden.' });
   const { name, config, syncIntervalMin, active } = req.body ?? {};
   let newConfig = source.config;
   if (config && typeof config === 'object') {
     const v = validateConfig(source.type as SourceType, config, JSON.parse(source.config));
     if ('error' in v) return res.status(400).json({ error: v.error });
+    const reachable = await checkReachable(source.type as SourceType, v.config);
+    if (reachable) return res.status(400).json({ error: reachable });
     newConfig = JSON.stringify(v.config);
   }
   db.prepare('UPDATE inventory_sources SET name = ?, config = ?, sync_interval_min = ?, active = ? WHERE id = ?').run(
@@ -144,7 +188,7 @@ inventoryRouter.patch('/inventory/sources/:id', (req, res) => {
 });
 
 inventoryRouter.delete('/inventory/sources/:id', (req, res) => {
-  const source = db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(req.params.id) as SourceRow | undefined;
+  const source = ownedSource(req);
   if (!source) return res.status(404).json({ error: 'Quelle nicht gefunden.' });
   db.prepare('DELETE FROM inventory_sources WHERE id = ?').run(source.id);
   recomputeProductStock(source.shop_id);
@@ -152,13 +196,15 @@ inventoryRouter.delete('/inventory/sources/:id', (req, res) => {
 });
 
 inventoryRouter.post('/inventory/sources/:id/sync', async (req, res) => {
-  const result = await runSync(Number(req.params.id), { force: req.body?.force === true });
+  const source = ownedSource(req);
+  if (!source) return res.status(404).json({ error: 'Quelle nicht gefunden.' });
+  const result = await runSync(source.id, { force: req.body?.force === true });
   res.status(result.status === 'error' ? 502 : 200).json(result);
 });
 
 /** Manueller CSV-Upload in eine Push-Quelle (Dashboard). */
 inventoryRouter.post('/inventory/sources/:id/upload', (req, res) => {
-  const source = db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(req.params.id) as SourceRow | undefined;
+  const source = ownedSource(req);
   if (!source) return res.status(404).json({ error: 'Quelle nicht gefunden.' });
   if (source.type !== 'push') return res.status(400).json({ error: 'CSV-Upload ist nur für Push-Quellen möglich.' });
   const { levels, errors } = parseInventoryCsv(String(req.body?.csv ?? ''));
@@ -174,7 +220,7 @@ inventoryRouter.patch('/inventory/locations/:id', (req, res) => {
   const loc = db.prepare('SELECT * FROM inventory_locations WHERE id = ?').get(req.params.id) as
     | { id: number; shop_id: number; name: string; kind: string; counts_for_online: number; customer_visible: number }
     | undefined;
-  if (!loc) return res.status(404).json({ error: 'Lagerort nicht gefunden.' });
+  if (!loc || !ownsShop(req, loc.shop_id)) return res.status(404).json({ error: 'Lagerort nicht gefunden.' });
   const { name, kind, countsForOnline, customerVisible } = req.body ?? {};
   db.prepare('UPDATE inventory_locations SET name = ?, kind = ?, counts_for_online = ?, customer_visible = ? WHERE id = ?').run(
     typeof name === 'string' && name.trim() ? name.trim() : loc.name,
@@ -188,7 +234,7 @@ inventoryRouter.patch('/inventory/locations/:id', (req, res) => {
 });
 
 inventoryRouter.put('/shops/:id/inventory/settings', (req, res) => {
-  const shop = getShop(req.params.id);
+  const shop = ownedShop(req, req.params.id);
   if (!shop) return res.status(404).json({ error: 'Shop nicht gefunden.' });
   const cur = getSettings(shop.id);
   const int = (v: unknown, min: number, max: number, fallback: number) =>
@@ -217,10 +263,13 @@ inventoryRouter.put('/shops/:id/inventory/settings', (req, res) => {
  *              "locations"?: [{ "externalId", "name", "kind"? }] }
  * oder Body text/csv (Spalten sku;bestand;lager;ean) – Modus per ?mode=
  */
-inventoryRouter.post('/inventory/push', text({ type: ['text/csv', 'text/plain'], limit: '10mb' }), (req, res) => {
+inventoryPushRouter.post('/inventory/push', text({ type: ['text/csv', 'text/plain'], limit: '10mb' }), (req, res) => {
   const token = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+  // Nachschlagen per Hash: der Token selbst liegt nirgends in der Datenbank
   const source = token.startsWith('inv_')
-    ? (db.prepare(`SELECT * FROM inventory_sources WHERE push_token = ? AND type = 'push'`).get(token) as SourceRow | undefined)
+    ? (db.prepare(`SELECT * FROM inventory_sources WHERE push_token_hash = ? AND type = 'push'`).get(sha256(token)) as
+        | SourceRow
+        | undefined)
     : undefined;
   if (!source) return res.status(401).json({ error: 'Ungültiger oder fehlender Push-Token.' });
   if (!source.active) return res.status(403).json({ error: 'Quelle ist deaktiviert.' });

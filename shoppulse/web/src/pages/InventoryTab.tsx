@@ -29,18 +29,27 @@ function AvailabilityPreview({ a }: { a?: Availability }) {
   );
 }
 
-function PushDetails({ source, onDone }: { source: InventorySource; onDone: (r: IngestResult) => void }) {
+function PushDetails({
+  source,
+  onDone,
+  onNewToken,
+}: {
+  source: InventorySource;
+  onDone: (r: IngestResult) => void;
+  onNewToken: (token: string) => void;
+}) {
   const [csv, setCsv] = useState('');
   const [mode, setMode] = useState<'snapshot' | 'upsert'>('upsert');
   const [busy, setBusy] = useState(false);
+  const token = '<IHR_PUSH_TOKEN>';
   const curl = `curl -X POST ${origin.replace(':5174', ':4100')}/api/inventory/push \\
-  -H "Authorization: Bearer ${source.push_token}" \\
+  -H "Authorization: Bearer ${token}" \\
   -H "Content-Type: application/json" \\
   -d '{"mode":"upsert","levels":[{"sku":"NL-JACKE-01","quantity":4,"location":"FIL-HH"}]}'
 
 # oder direkt eine CSV-Datei aus dem ERP/Kassensystem senden:
 curl -X POST "${origin.replace(':5174', ':4100')}/api/inventory/push?mode=snapshot" \\
-  -H "Authorization: Bearer ${source.push_token}" \\
+  -H "Authorization: Bearer ${token}" \\
   -H "Content-Type: text/csv" --data-binary @bestand.csv`;
 
   async function upload(force = false) {
@@ -62,6 +71,22 @@ curl -X POST "${origin.replace(':5174', ':4100')}/api/inventory/push?mode=snapsh
         (Spalten z. B. <code>Artikelnummer;Bestand;Lager;EAN</code>). <strong>upsert</strong> aktualisiert nur die gesendeten
         Artikel, <strong>snapshot</strong> ersetzt den kompletten Bestand dieser Quelle.
       </p>
+      <div className="small" style={{ margin: '8px 0', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span>
+          Push-Token: <code>inv_…{source.push_token_hint ?? '????'}</code>{' '}
+          <span className="muted">(wird aus Sicherheitsgründen nur beim Erzeugen angezeigt)</span>
+        </span>
+        <button
+          className="btn secondary small"
+          onClick={async () => {
+            if (!confirm('Neuen Token erzeugen? Der bisherige Token wird sofort ungültig – angebundene Systeme müssen umgestellt werden.')) return;
+            const r = await api.regenerateToken(source.id);
+            onNewToken(r.pushToken);
+          }}
+        >
+          Token neu erzeugen
+        </button>
+      </div>
       <pre className="code-block">{curl}</pre>
       <div className="form-field" style={{ marginTop: 10 }}>
         <label>CSV hochladen</label>
@@ -157,6 +182,7 @@ export default function InventoryTab({ shop }: { shop: Shop }) {
   const [notice, setNotice] = useState<IngestResult | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [settings, setSettings] = useState({ lowStockThreshold: '5', maxAgeHours: '24', showStoreAvailability: true });
+  const [newToken, setNewToken] = useState<{ name: string; token: string } | null>(null);
 
   const load = () =>
     api
@@ -200,6 +226,19 @@ export default function InventoryTab({ shop }: { shop: Shop }) {
           <strong>{notice.status === 'ok' ? 'Abgleich erfolgreich: ' : notice.status === 'blocked' ? 'Sicherheitsstopp: ' : 'Fehler: '}</strong>
           {notice.message}
           {notice.parseErrors?.length ? ` · ${notice.parseErrors.length} Zeilen übersprungen (z. B. ${notice.parseErrors[0]})` : ''}
+        </div>
+      )}
+
+      {newToken && (
+        <div className="info-banner" style={{ borderColor: 'var(--warn)' }}>
+          <strong>Push-Token für „{newToken.name}“ – jetzt kopieren, er wird nicht noch einmal angezeigt:</strong>
+          <pre className="code-block" style={{ margin: '8px 0', userSelect: 'all' }}>{newToken.token}</pre>
+          <button className="btn small" onClick={() => navigator.clipboard?.writeText(newToken.token)}>
+            Kopieren
+          </button>{' '}
+          <button className="btn secondary small" onClick={() => setNewToken(null)}>
+            Gespeichert, ausblenden
+          </button>
         </div>
       )}
 
@@ -256,14 +295,28 @@ export default function InventoryTab({ shop }: { shop: Shop }) {
                   </button>
                 </div>
               </div>
-              {s.type === 'push' && <PushDetails source={s} onDone={(r) => { setNotice(r); load(); }} />}
+              {s.type === 'push' && (
+                <PushDetails
+                  source={s}
+                  onDone={(r) => { setNotice(r); load(); }}
+                  onNewToken={(t) => { setNewToken({ name: s.name, token: t }); load(); }}
+                />
+              )}
             </div>
           );
         })}
         <p className="section-title" style={{ margin: '20px 0 12px' }}>
           Neue Quelle anbinden
         </p>
-        <NewSourceForm types={types} onCreate={(d) => act(() => api.createSource(shop.id, d))} />
+        <NewSourceForm
+          types={types}
+          onCreate={(d) =>
+            act(async () => {
+              const created = await api.createSource(shop.id, d);
+              if (created.pushToken) setNewToken({ name: created.name, token: created.pushToken });
+            })
+          }
+        />
       </div>
 
       <div className="panel">

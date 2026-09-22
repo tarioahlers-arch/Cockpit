@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,38 @@ db.pragma('foreign_keys = ON');
 
 db.exec(fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8'));
 
+function columns(table: string): string[] {
+  return (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+}
+
+/** Migrationen fuer Datenbanken aus aelteren Versionen (idempotent). */
+function migrate() {
+  // Mandantentrennung: jeder Shop gehoert genau einer Organisation
+  if (!columns('shops').includes('org_id')) {
+    db.exec('ALTER TABLE shops ADD COLUMN org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE');
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_shops_org ON shops(org_id)');
+
+  // Push-Tokens nur noch als Hash speichern; bestehende Klartext-Tokens umwandeln
+  if (!columns('inventory_sources').includes('push_token_hash')) {
+    db.exec('ALTER TABLE inventory_sources ADD COLUMN push_token_hash TEXT');
+    db.exec('ALTER TABLE inventory_sources ADD COLUMN push_token_hint TEXT');
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_sources_push_hash ON inventory_sources(push_token_hash)');
+  const plain = db.prepare('SELECT id, push_token FROM inventory_sources WHERE push_token IS NOT NULL').all() as {
+    id: number;
+    push_token: string;
+  }[];
+  const upd = db.prepare('UPDATE inventory_sources SET push_token_hash = ?, push_token_hint = ?, push_token = NULL WHERE id = ?');
+  for (const r of plain) upd.run(sha256(r.push_token), r.push_token.slice(-4), r.id);
+}
+
+export function sha256(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+migrate();
+
 export interface ShopRow {
   id: number;
   name: string;
@@ -23,6 +56,7 @@ export interface ShopRow {
   niche: string;
   public_key: string;
   is_demo: number;
+  org_id: number | null;
   created_at: string;
 }
 

@@ -7,7 +7,8 @@ export interface SourceRow {
   name: string;
   type: string;
   config: string;
-  push_token: string | null;
+  push_token_hash: string | null;
+  push_token_hint: string | null;
   sync_interval_min: number;
   active: number;
   last_sync_at: string | null;

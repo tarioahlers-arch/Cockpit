@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json && cp src/db/schema.sql dist/db/ && cp -r src/public dist/",
     "start": "node dist/index.js",
     "seed:demo": "tsx src/db/seedDemo.ts",
+    "assign-shops": "tsx src/db/assignShops.ts",
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {

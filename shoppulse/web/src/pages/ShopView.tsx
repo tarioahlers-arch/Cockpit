@@ -5,6 +5,7 @@ import OverviewTab from './OverviewTab';
 import SegmentsTab from './SegmentsTab';
 import ExperimentsTab from './ExperimentsTab';
 import PricingTab from './PricingTab';
+import InventoryTab from './InventoryTab';
 import SnippetInstructions from '../components/SnippetInstructions';
 
 export default function ShopView() {
@@ -58,6 +59,7 @@ export default function ShopView() {
         {tab(`/shops/${id}/segmente`, 'Segmente')}
         {tab(`/shops/${id}/experimente`, 'Nudges & A/B-Tests')}
         {tab(`/shops/${id}/pricing`, 'Pricing Intelligence')}
+        {tab(`/shops/${id}/lager`, 'Lager & Verfügbarkeit')}
         {tab(`/shops/${id}/integration`, 'Integration')}
       </div>
 
@@ -66,6 +68,7 @@ export default function ShopView() {
         <Route path="segmente" element={<SegmentsTab shopId={id} />} />
         <Route path="experimente" element={<ExperimentsTab shopId={id} />} />
         <Route path="pricing" element={<PricingTab shopId={id} />} />
+        <Route path="lager" element={<InventoryTab shop={shop} />} />
         <Route
           path="integration"
           element={

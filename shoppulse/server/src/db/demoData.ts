@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import { db, getShop, type ShopRow } from './index.js';
+import { ingestInventory, type SourceRow } from '../inventory/ingest.js';
+import { recordPush } from '../inventory/sync.js';
 
 /**
  * Erzeugt einen Demo-Shop mit 30 Tagen synthetischer, klar als Demo gekennzeichneter Verhaltensdaten,
@@ -228,5 +230,69 @@ export function createDemoShop(): ShopRow {
     }
   });
   run();
+  seedInventory(shopId);
   return getShop(shopId)!;
+}
+
+/**
+ * Demo-Lagerintegration mit zwei unterschiedlichen "Tools":
+ *  - ERP-Export als CSV-Feed (Pull, wird vom Scheduler regelmaessig abgerufen)
+ *  - Kassensystem der Filialen per Push-API
+ */
+const DEMO_STOCK: { sku: string; central: number; hamburg: number; munich: number }[] = [
+  { sku: 'NL-JACKE-01', central: 4, hamburg: 2, munich: 0 },
+  { sku: 'NL-JACKE-02', central: 0, hamburg: 3, munich: 1 },
+  { sku: 'NL-SHIRT-01', central: 80, hamburg: 12, munich: 9 },
+  { sku: 'NL-SOCKEN-3', central: 140, hamburg: 30, munich: 25 },
+  { sku: 'NL-MUETZE-01', central: 35, hamburg: 6, munich: 4 }, // im ERP, aber (noch) nicht als Produkt in ShopPulse
+];
+
+export function demoErpCsv(): string {
+  return ['Artikelnummer;Bestand;Lager', ...DEMO_STOCK.map((r) => `${r.sku};${r.central};Zentrallager Hamburg`)].join('\n');
+}
+
+function seedInventory(shopId: number) {
+  const port = process.env.PORT ?? '4100';
+  const insert = db.prepare(
+    'INSERT INTO inventory_sources (shop_id, name, type, config, push_token, sync_interval_min) VALUES (?, ?, ?, ?, ?, ?)',
+  );
+  const erpId = Number(
+    insert.run(
+      shopId,
+      'ERP-Export (CSV-Feed)',
+      'csv_url',
+      JSON.stringify({ url: `http://localhost:${port}/demo-shop/${shopId}/erp-bestand.csv` }),
+      null,
+      15,
+    ).lastInsertRowid,
+  );
+  const posId = Number(
+    insert.run(shopId, 'Kassensystem Filialen (Push-API)', 'push', '{}', 'inv_demo_' + crypto.randomBytes(16).toString('hex'), 15)
+      .lastInsertRowid,
+  );
+  const source = (id: number) => db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(id) as SourceRow;
+
+  // ERP: gleicher Stand, den der Feed liefert (Scheduler gleicht spaeter echt per HTTP ab)
+  const erp = ingestInventory(
+    source(erpId),
+    { levels: DEMO_STOCK.map((r) => ({ sku: r.sku, quantity: r.central, location: 'Zentrallager Hamburg' })) },
+    'snapshot',
+  );
+  recordPush(erpId, erp);
+
+  const pos = ingestInventory(
+    source(posId),
+    {
+      locations: [
+        { externalId: 'FIL-HH', name: 'Filiale Hamburg', kind: 'store' },
+        { externalId: 'FIL-MUC', name: 'Filiale München', kind: 'store' },
+      ],
+      levels: DEMO_STOCK.flatMap((r) => [
+        { sku: r.sku, quantity: r.hamburg, location: 'FIL-HH' },
+        { sku: r.sku, quantity: r.munich, location: 'FIL-MUC' },
+      ]),
+    },
+    'snapshot',
+  );
+  recordPush(posId, pos);
 }

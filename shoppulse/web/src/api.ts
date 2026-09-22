@@ -159,6 +159,62 @@ export interface ProductPricing {
   };
 }
 
+export interface SourceTypeDef {
+  type: 'shopify' | 'shopware' | 'woocommerce' | 'csv_url' | 'push';
+  label: string;
+  description: string;
+  fields: { key: string; label: string; secret?: boolean; placeholder?: string; optional?: boolean }[];
+}
+
+export interface InventorySource {
+  id: number;
+  name: string;
+  type: SourceTypeDef['type'];
+  config: Record<string, string>;
+  push_token: string | null;
+  sync_interval_min: number;
+  active: number;
+  last_sync_at: string | null;
+  last_status: 'ok' | 'error' | 'blocked' | null;
+  last_message: string | null;
+}
+
+export interface InventoryLocation {
+  id: number;
+  source_id: number;
+  source_name: string;
+  external_id: string;
+  name: string;
+  kind: 'warehouse' | 'store' | 'supplier';
+  counts_for_online: number;
+  customer_visible: number;
+}
+
+export interface Availability {
+  sku: string;
+  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'unknown';
+  label: string | null;
+  quantity: number | null;
+  stores: { name: string; status: 'available' | 'low' | 'none'; label: string }[];
+  updatedAt: string | null;
+}
+
+export interface InventoryOverview {
+  settings: { low_stock_threshold: number; max_age_hours: number; show_store_availability: number };
+  sources: InventorySource[];
+  locations: InventoryLocation[];
+  items: { sku: string; name: string | null; matched: boolean; perLocation: Record<number, number>; updatedAt: string; availability?: Availability }[];
+  productsWithoutStock: { sku: string; name: string }[];
+  runs: { id: number; source_name: string; started_at: string; status: string; items: number; message: string | null }[];
+}
+
+export interface IngestResult {
+  status: 'ok' | 'blocked' | 'error';
+  message: string;
+  items?: number;
+  parseErrors?: string[];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
@@ -193,7 +249,27 @@ export const api = {
   importOffers: (shopId: number, offers: Record<string, unknown>[]) =>
     post<{ imported: number; matched: number; unmatched: number; skipped: number }>(`/shops/${shopId}/competitor-offers`, { offers }),
   matchOffer: (offerId: number, productId: number | null) => patch(`/competitor-offers/${offerId}`, { productId }),
+
+  sourceTypes: () => request<SourceTypeDef[]>('/inventory/source-types'),
+  inventory: (shopId: number) => request<InventoryOverview>(`/shops/${shopId}/inventory`),
+  createSource: (shopId: number, data: Record<string, unknown>) => post<InventorySource>(`/shops/${shopId}/inventory/sources`, data),
+  updateSource: (id: number, data: Record<string, unknown>) => patch<InventorySource>(`/inventory/sources/${id}`, data),
+  deleteSource: (id: number) => request<void>(`/inventory/sources/${id}`, { method: 'DELETE' }),
+  syncSource: (id: number, force = false) => rawPost(`/inventory/sources/${id}/sync`, { force }),
+  uploadCsv: (id: number, csv: string, mode: 'snapshot' | 'upsert', force = false) =>
+    rawPost(`/inventory/sources/${id}/upload`, { csv, mode, force }),
+  updateLocation: (id: number, data: Record<string, unknown>) => patch(`/inventory/locations/${id}`, data),
+  saveInventorySettings: (shopId: number, data: Record<string, unknown>) =>
+    request(`/shops/${shopId}/inventory/settings`, { method: 'PUT', body: JSON.stringify(data) }),
 };
+
+/** Wie post, liefert aber auch bei 409/502 das Ergebnis (Sicherheitsstopp, Fehlermeldung) zurueck. */
+async function rawPost(path: string, data: unknown): Promise<IngestResult> {
+  const res = await fetch(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok && !body.status) return { status: 'error', message: body.error ?? `Fehler ${res.status}` };
+  return body as IngestResult;
+}
 
 export const fmt = {
   eur: (v: number, digits = 0) =>

@@ -78,3 +78,66 @@ CREATE TABLE IF NOT EXISTS competitor_offers (
   match_confidence REAL,
   observed_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ---------------------------------------------------------------------------
+-- Lager & Verfuegbarkeit
+-- ---------------------------------------------------------------------------
+
+-- Eine Quelle = ein Tool, das Bestaende liefert (Shopsystem, ERP, WMS, Filial-Kasse ...).
+CREATE TABLE IF NOT EXISTS inventory_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shop_id INTEGER NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,                 -- shopify | shopware | woocommerce | csv_url | push
+  config TEXT NOT NULL DEFAULT '{}',  -- Zugangsdaten/URLs (werden in API-Antworten maskiert)
+  push_token TEXT UNIQUE,             -- nur fuer type = push
+  sync_interval_min INTEGER NOT NULL DEFAULT 15,
+  active INTEGER NOT NULL DEFAULT 1,
+  last_sync_at TEXT,
+  last_status TEXT,                   -- ok | error | blocked
+  last_message TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Lagerorte gehoeren genau einer Quelle – so koennen sich Tools nicht gegenseitig ueberschreiben.
+CREATE TABLE IF NOT EXISTS inventory_locations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shop_id INTEGER NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  source_id INTEGER NOT NULL REFERENCES inventory_sources(id) ON DELETE CASCADE,
+  external_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'warehouse',       -- warehouse | store | supplier
+  counts_for_online INTEGER NOT NULL DEFAULT 1, -- zaehlt zum online bestellbaren Bestand
+  customer_visible INTEGER NOT NULL DEFAULT 0,  -- Kund:innen sehen die Verfuegbarkeit dieses Orts (z. B. Filiale)
+  UNIQUE(source_id, external_id)
+);
+
+CREATE TABLE IF NOT EXISTS inventory_levels (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shop_id INTEGER NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  location_id INTEGER NOT NULL REFERENCES inventory_locations(id) ON DELETE CASCADE,
+  sku TEXT NOT NULL,
+  ean TEXT,
+  quantity INTEGER NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(location_id, sku)
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_levels_shop_sku ON inventory_levels(shop_id, sku);
+
+CREATE TABLE IF NOT EXISTS inventory_sync_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id INTEGER NOT NULL REFERENCES inventory_sources(id) ON DELETE CASCADE,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at TEXT,
+  status TEXT NOT NULL,               -- ok | error | blocked
+  items INTEGER NOT NULL DEFAULT 0,
+  message TEXT
+);
+
+-- Regeln fuer die Anzeige gegenueber Kund:innen
+CREATE TABLE IF NOT EXISTS inventory_settings (
+  shop_id INTEGER PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,
+  low_stock_threshold INTEGER NOT NULL DEFAULT 5,  -- ab hier "Nur noch X Stück"
+  max_age_hours INTEGER NOT NULL DEFAULT 24,       -- aeltere Daten werden Kund:innen nicht gezeigt
+  show_store_availability INTEGER NOT NULL DEFAULT 1
+);

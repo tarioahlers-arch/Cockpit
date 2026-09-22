@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db, type ExperimentRow, type ShopRow } from '../db/index.js';
+import { getAvailability } from '../inventory/availability.js';
 
 /**
  * Oeffentliche Endpunkte, die das Tracking-Snippet im Shop aufruft. Authentisierung per public_key –
@@ -91,11 +92,17 @@ publicRouter.get('/public/config', (req, res) => {
       data.show = n >= (Number(config.minCount) || 3);
     }
     if (exp.nudge_type === 'scarcity' && sku) {
-      const p = db.prepare('SELECT stock FROM products WHERE shop_id = ? AND sku = ?').get(shop.id, sku) as
-        | { stock: number | null }
-        | undefined;
-      // Produkttabelle hat Vorrang; sonst nutzt das Snippet data-sp-stock der Seite
-      if (p?.stock != null) data.stock = p.stock;
+      // Integrierter Lagerbestand hat Vorrang – aber nur, wenn er aktuell ist
+      const a = getAvailability(shop.id, [sku])[0];
+      if (a.status === 'out_of_stock' || a.status === 'low_stock') data.stock = a.quantity;
+      else if (a.status === 'in_stock') data.stock = null;
+      else {
+        const p = db.prepare('SELECT stock FROM products WHERE shop_id = ? AND sku = ?').get(shop.id, sku) as
+          | { stock: number | null }
+          | undefined;
+        // ohne Integration: Produkttabelle, sonst nutzt das Snippet data-sp-stock der Seite
+        if (p?.stock != null) data.stock = p.stock;
+      }
     }
     if (exp.nudge_type === 'decoy') {
       const skus = Array.isArray(config.variantSkus) ? (config.variantSkus as string[]) : [];
@@ -117,6 +124,19 @@ publicRouter.get('/public/config', (req, res) => {
   });
 
   res.json({ experiments: out });
+});
+
+/** Verfuegbarkeit fuer Kund:innen (Produktseite, Kategorie-Listing, Warenkorb). */
+publicRouter.get('/public/availability', (req, res) => {
+  const shop = shopByKey(req.query.key);
+  if (!shop) return res.status(401).json({ error: 'Unbekannter Shop-Key.' });
+  const skus = String(req.query.skus ?? req.query.sku ?? '')
+    .split(',')
+    .map((s) => s.trim().slice(0, 64))
+    .filter(Boolean)
+    .slice(0, 100);
+  res.set('Cache-Control', 'public, max-age=60');
+  res.json({ items: getAvailability(shop.id, [...new Set(skus)]) });
 });
 
 function safeJson(s: string): any {

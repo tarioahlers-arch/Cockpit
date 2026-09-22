@@ -16,6 +16,42 @@ begründet, *warum* sie wirkt.
 | **C) Pricing Intelligence** | Wettbewerbspreise per CSV/API-Import mit **SKU-Matching**: zuerst per EAN, sonst per Titelähnlichkeit, bei Bedarf manuell. Die **Preiselastizität** wird per Log-Log-Regression aus der eigenen Preis-/Absatzhistorie geschätzt. Die Preisempfehlung maximiert den Deckungsbeitrag, in Schritten von höchstens ±10 %. |
 | **D) Beratungs-Dashboard** | Klartext-Reports statt Rohdaten: Handlungsempfehlungen, priorisiert nach geschätztem Umsatzpotenzial, jeweils mit „Warum“, Annahme, Konfidenz und Aufwand. A/B-Ergebnisse erklären, welches Segment wie reagiert hat. Dazu kommt ein **Onboarding-Wizard** (Shop-Daten → Integration → Quick-Win-Analyse). |
 
+| **E) Lager & Verfügbarkeit** | Lagerbestände aus beliebig vielen Tools, z. B. Onlineshop, ERP und Kassensystem der Filialen. Jedes Tool ist eine eigene **Quelle** mit eigenen Lagerorten, so überschreiben sich die Systeme nie gegenseitig. Kund:innen sehen im Shop eine **Verfügbarkeitsanzeige**, auf Wunsch mit Filialbeständen. |
+
+### Lagerbestände integrieren
+
+| Quelle | Funktionsweise | Geeignet für |
+|---|---|---|
+| **Shopify** | Pull über die Admin-GraphQL-API, mehrere Standorte (Token mit `read_products`, `read_inventory`, `read_locations`) | Shopify-Shops |
+| **Shopware 6** | Pull über die Admin-API (Integration mit Zugangs-ID/Schlüssel), `availableStock` je Produktnummer | Shopware-Shops |
+| **WooCommerce** | Pull über REST API v3 (Consumer Key/Secret, nur Lesezugriff), inkl. Variationen | WooCommerce-Shops |
+| **CSV-Feed (URL)** | Pull einer CSV-Datei, die das Fremdsystem regelmäßig bereitstellt | ERP/WMS wie JTL-Wawi, Xentral, plentymarkets, Billbee, Excel-Export |
+| **Push-API / CSV-Upload** | Das System sendet selbst (`POST /api/inventory/push` mit Bearer-Token, JSON oder `text/csv`), oder Upload im Dashboard | Kassensysteme, Lagerverwaltung, Zapier/Make, eigene Skripte |
+
+Pull-Quellen gleicht ein Scheduler automatisch ab, Standard alle 15 min, einstellbar zwischen 5 und 1440 min.
+
+**Wie die Daten verarbeitet werden:**
+- **CSV-Spalten:** Gängige deutsche und englische Spaltennamen werden erkannt (`Artikelnummer`/`sku`, `Bestand`/`quantity`, `Lager`/`location`, `EAN`).
+- **Zuordnung:** Artikel werden per SKU den Produkten zugeordnet, sonst per EAN. So funktioniert es auch, wenn das ERP andere Artikelnummern führt.
+- **Online-Bestand:** Summe aller Lagerorte mit „zählt zum Onlinebestand“, standardmäßig Lager ja und Filialen nein. Filialen können für Kund:innen sichtbar geschaltet werden, z. B. für Abholung.
+- **Sicherheitsstopp:** Ein leerer oder um mehr als 80 % eingebrochener Komplettabgleich wird blockiert. Eine defekte Schnittstelle setzt so nicht versehentlich alle Bestände auf 0. Im Dashboard kann man den Abgleich bewusst erzwingen.
+- **Folgen im Dashboard:** Ausverkaufte Produkte mit weiterer Nachfrage erscheinen als priorisierte Empfehlung mit geschätztem entgangenem Umsatz. Fehlerhafte oder veraltete Quellen werden ebenfalls als Empfehlung gemeldet.
+
+**Anzeige im Shop:** `<div data-sp-availability></div>` auf der Produktseite oder `data-sp-availability-sku="…"` in Listings. Die Texte:
+- Standard: „Auf Lager – sofort lieferbar“.
+- Unter der Schwelle: „Nur noch X Stück auf Lager“.
+- Ausverkauft: „Derzeit nicht auf Lager“ bzw. „Online derzeit nicht lieferbar – vorrätig in: Filiale …“.
+
+Regeln für die Anzeige:
+- **Nur aktuelle Daten:** Bestände, die älter als `max_age_hours` sind (Standard 24 h), werden nicht angezeigt. Dasselbe gilt für den Scarcity-Nudge.
+- **Keine Einwilligung nötig:** Die Anzeige erzeugt keine IDs, speichert nichts und trackt nichts.
+
+**Grenzen:**
+- **Nicht live geprüft:** Die Connectoren für Shopify, Shopware und WooCommerce sind gegen simulierte API-Antworten getestet, nicht gegen echte Shops. Vor dem Produktivbetrieb bitte mit einem Test-Zugang prüfen.
+- **Zugangsdaten im Klartext:** Sie liegen in der SQLite-Datenbank. Im Dashboard werden sie maskiert, für den Produktivbetrieb ist aber ein Secret-Store nötig.
+- **Firmenproxy:** Der Abruf über einen Firmenproxy (`HTTPS_PROXY`) wird noch nicht unterstützt.
+- **Reservierungen:** Reservierungen und Zulauf (bestellte Ware) werden nicht separat geführt. Maßgeblich ist der von der Quelle gemeldete verfügbare Bestand.
+
 ### Ehrlichkeit als Designprinzip
 
 Nudges zeigen nur echte Daten, sonst erscheinen sie gar nicht:
@@ -65,6 +101,11 @@ Wichtige Endpunkte:
 - `GET /api/shops/:id/pricing`, `POST /api/shops/:id/products`,
   `POST /api/products/:id/history`, `POST /api/shops/:id/competitor-offers`
 - `POST /api/collect` und `GET /api/public/config`: öffentlich, vom Snippet genutzt
+- `GET /api/shops/:id/inventory`, `POST /api/shops/:id/inventory/sources`,
+  `POST /api/inventory/sources/:id/sync`, `POST /api/inventory/sources/:id/upload`,
+  `PATCH /api/inventory/locations/:id`, `PUT /api/shops/:id/inventory/settings`
+- `POST /api/inventory/push`: Push-Endpunkt für Fremdsysteme (Bearer-Token der Quelle)
+- `GET /api/public/availability?key=…&skus=a,b`: Verfügbarkeit für Kund:innen (vom Snippet genutzt)
 - `GET /snippet.js`, `GET /demo-shop/:shopId`
 
 ## Setup
@@ -96,6 +137,7 @@ Die SQLite-Datenbank wird beim ersten Start unter `server/data/shoppulse.db` ang
 | `PORT` | Port der API | `4100` |
 | `SHOPPULSE_DATA_DIR` / `SHOPPULSE_DB` | Speicherort der Datenbank | `server/data/shoppulse.db` |
 | `SHOPPULSE_CACHE_TTL_MS` | Wie lange Dashboard-Auswertungen Rohereignisse cachen | `60000` |
+| `SHOPPULSE_DISABLE_SCHEDULER` | `1` schaltet den automatischen Lagerabgleich ab | – |
 
 ### Snippet ausprobieren
 
@@ -103,6 +145,13 @@ Im Dashboard auf **Test-Shop ↗** klicken, im Banner „Einverstanden“ wähle
 auf dem Kauf-Button verweilen lassen und den Kauf abschließen. Die Ereignisse erscheinen nach
 spätestens 60 s im Dashboard. Beim Demo-Shop läuft ein Social-Proof-Test: Je nach
 zugewiesener Variante erscheint über dem Button z. B. „11× in den letzten 48 Stunden gekauft“.
+
+Die Demo-Lagerintegration besteht aus zwei „Tools“:
+- **ERP-Export als CSV-Feed:** Der Demo-Server stellt ihn selbst bereit, der Scheduler ruft ihn echt per HTTP ab.
+- **Kassensystem der Filialen per Push-API.**
+
+„Regenjacke Herren“ ist online ausverkauft, aber in der Filiale Hamburg vorrätig. Die
+Anzeige dazu sieht man unter `/demo-shop/1?sku=NL-JACKE-02`.
 
 ## Bewusste Grenzen des MVP
 

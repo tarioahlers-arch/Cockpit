@@ -6,6 +6,9 @@ import { segmentVisitors } from '../analytics/segmentation.js';
 import { buildRecommendations } from '../analytics/insights.js';
 import { analyzeExperiment } from '../analytics/experiments.js';
 import type { NudgeType } from '../analytics/nudges.js';
+import type { EventRow } from '../db/index.js';
+import type { InventorySignal } from '../analytics/insights.js';
+import { getAvailability, getSettings } from '../inventory/availability.js';
 import { pricingForShop } from './pricing.js';
 import { createDemoShop } from '../db/demoData.js';
 
@@ -81,6 +84,8 @@ shopsRouter.get('/:id/overview', (req, res) => {
   const experiments = db.prepare('SELECT * FROM experiments WHERE shop_id = ?').all(shop.id) as ExperimentRow[];
 
   const recommendations = buildRecommendations({
+    inventory: inventorySignal(shop.id, events),
+    productViewToUnitRate: productViewToUnitRate(events),
     funnel,
     segments,
     pricing: pricing.map((p) => ({
@@ -143,3 +148,46 @@ shopsRouter.get('/:id/overview', (req, res) => {
     timeline,
   });
 });
+
+function inventorySignal(shopId: number, events: EventRow[]): InventorySignal {
+  const products = db.prepare('SELECT sku, name, price FROM products WHERE shop_id = ?').all(shopId) as {
+    sku: string;
+    name: string;
+    price: number;
+  }[];
+  const availability = new Map(getAvailability(shopId, products.map((p) => p.sku)).map((a) => [a.sku, a]));
+  const views = new Map<string, number>();
+  const sold = new Map<string, number>();
+  for (const e of events) {
+    if (!e.sku) continue;
+    if (e.type === 'page_view' && e.page_type === 'product') views.set(e.sku, (views.get(e.sku) ?? 0) + 1);
+    if (e.type === 'purchase_item') sold.set(e.sku, (sold.get(e.sku) ?? 0) + 1);
+  }
+  const outOfStockWithDemand = products
+    .filter((p) => availability.get(p.sku)?.status === 'out_of_stock' && (views.get(p.sku) ?? 0) > 0)
+    .map((p) => ({ ...p, productViews: views.get(p.sku)!, unitsSold: sold.get(p.sku) ?? 0 }));
+
+  const maxAge = getSettings(shopId).max_age_hours;
+  const sources = db
+    .prepare('SELECT name, last_status, last_message, last_sync_at FROM inventory_sources WHERE shop_id = ? AND active = 1')
+    .all(shopId) as { name: string; last_status: string | null; last_message: string | null; last_sync_at: string | null }[];
+  const cutoff = new Date(Date.now() - maxAge * 3_600_000).toISOString().slice(0, 19).replace('T', ' ');
+  const problemSources = sources.flatMap((s) => {
+    if (s.last_status === 'error') return [{ name: s.name, problem: `Abgleich fehlgeschlagen (${s.last_message ?? 'unbekannter Fehler'})` }];
+    if (s.last_status === 'blocked') return [{ name: s.name, problem: 'Sicherheitsstopp beim letzten Abgleich' }];
+    if (!s.last_sync_at) return [{ name: s.name, problem: 'noch nie abgeglichen' }];
+    if (s.last_sync_at < cutoff) return [{ name: s.name, problem: `seit über ${maxAge} h keine neuen Daten` }];
+    return [];
+  });
+  return { outOfStockWithDemand, problemSources };
+}
+
+function productViewToUnitRate(events: EventRow[]): number {
+  let views = 0;
+  let units = 0;
+  for (const e of events) {
+    if (e.type === 'page_view' && e.page_type === 'product') views += 1;
+    else if (e.type === 'purchase_item') units += 1;
+  }
+  return views ? units / views : 0;
+}

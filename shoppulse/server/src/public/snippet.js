@@ -17,6 +17,8 @@
  *   [data-sp-price-filter]   Preisfilter/-sortierung
  *   [data-sp-nudge-slot]     optionaler Platz fuer Nudges (sonst vor dem Kauf-Button)
  *   [data-sp-variant-sku]    Varianten-/Paketoption (fuer Decoy-Tests)
+ *   [data-sp-availability]   Verfuegbarkeitsanzeige (Wert = SKU, leer = SKU der Seite)
+ *   [data-sp-availability-sku="SKU"]  Verfuegbarkeit z. B. in Kategorie-Listings
  */
 (function () {
   'use strict';
@@ -204,7 +206,8 @@
         if (!d.show) return null;
         return badge(fill(c.template, { count: d.count, hours: d.hours }), 'social-proof');
       case 'scarcity': {
-        var stock = d.stock != null ? d.stock : page.stock;
+        // Liefert der Server einen (integrierten) Bestand – auch null = "reichlich" –, hat er Vorrang
+        var stock = 'stock' in d ? d.stock : page.stock;
         if (stock == null || stock <= 0 || stock > (Number(c.maxStock) || 10)) return null;
         return badge(fill(c.template, { stock: stock }), 'scarcity');
       }
@@ -246,6 +249,61 @@
       .catch(function () {});
   }
 
+  // --- Verfuegbarkeit (Lagerbestand fuer Kund:innen) ------------------------
+  // Reine Anzeige ohne IDs, Speicher oder Tracking – laeuft daher auch ohne Einwilligung.
+
+  var AV_COLORS = { in_stock: '#1a7f4b', low_stock: '#b26a00', out_of_stock: '#b3261e' };
+
+  function renderAvailability(el, a) {
+    if (!a || a.status === 'unknown' || !a.label) return;
+    el.innerHTML = '';
+    var line = document.createElement('div');
+    line.className = 'sp-availability sp-availability-' + a.status;
+    line.style.cssText = 'font:600 14px/1.4 system-ui,sans-serif;display:flex;align-items:center;gap:6px;color:' + (AV_COLORS[a.status] || '#333');
+    var dot = document.createElement('span');
+    dot.style.cssText = 'width:9px;height:9px;border-radius:50%;flex:none;background:' + (AV_COLORS[a.status] || '#999');
+    line.appendChild(dot);
+    line.appendChild(document.createTextNode(a.label));
+    el.appendChild(line);
+    if (a.stores && a.stores.length && el.getAttribute('data-sp-show-stores') !== 'false') {
+      var list = document.createElement('ul');
+      list.className = 'sp-availability-stores';
+      list.style.cssText = 'margin:4px 0 0;padding-left:18px;font:13px/1.5 system-ui,sans-serif;color:#555';
+      a.stores.forEach(function (s) {
+        var li = document.createElement('li');
+        li.textContent = s.name + ': ' + s.label;
+        list.appendChild(li);
+      });
+      el.appendChild(list);
+    }
+  }
+
+  function loadAvailability() {
+    if (!KEY) return;
+    var page = pageData();
+    var targets = [];
+    Array.prototype.forEach.call(document.querySelectorAll('[data-sp-availability]'), function (el) {
+      var sku = el.getAttribute('data-sp-availability') || page.sku;
+      if (sku) targets.push({ el: el, sku: sku });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-sp-availability-sku]'), function (el) {
+      targets.push({ el: el, sku: el.getAttribute('data-sp-availability-sku') });
+    });
+    if (!targets.length) return;
+    var skus = targets.map(function (t) { return t.sku; }).filter(function (s, i, a) { return a.indexOf(s) === i; }).slice(0, 100);
+    fetch(ENDPOINT + '/api/public/availability?key=' + encodeURIComponent(KEY) + '&skus=' + skus.map(encodeURIComponent).join(','))
+      .then(function (r) { return r.ok ? r.json() : { items: [] }; })
+      .then(function (res) {
+        var bySku = {};
+        (res.items || []).forEach(function (a) { bySku[a.sku] = a; });
+        targets.forEach(function (t) { renderAvailability(t.el, bySku[t.sku]); });
+      })
+      .catch(function () {});
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadAvailability);
+  else loadAvailability();
+
   // --- Start --------------------------------------------------------------
 
   function start() {
@@ -278,6 +336,8 @@
     },
     /** Manuelles Tracking, z. B. ShopPulse.track('purchase', { value: 59.9, skus: ['A1'] }) */
     track: function (type, props) { track(type, props); },
+    /** Verfuegbarkeit neu laden, z. B. nach Variantenwechsel oder AJAX-Nachladen */
+    refreshAvailability: function () { loadAvailability(); },
   };
 
   document.addEventListener('shoppulse:consent', function (e) {

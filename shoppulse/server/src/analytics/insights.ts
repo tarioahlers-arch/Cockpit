@@ -37,8 +37,16 @@ export interface ExperimentSignal {
   relativeUplift: number | null;
 }
 
+export interface InventorySignal {
+  /** ausverkaufte Produkte (aktueller, integrierter Bestand) mit Produktseitenaufrufen im Zeitraum */
+  outOfStockWithDemand: { sku: string; name: string; price: number; productViews: number; unitsSold: number }[];
+  /** Quellen mit Fehler, Sicherheitsstopp oder veralteten Daten */
+  problemSources: { name: string; problem: string }[];
+}
+
 const fmtPct = (v: number) => `${Math.round(v * 100)} %`;
 const eur = (v: number) => Math.round(v);
+const fmtNum = (v: number) => v.toLocaleString('de-DE');
 
 /**
  * Leitet priorisierte Handlungsempfehlungen ab. Potenziale sind bewusst konservative Schaetzungen
@@ -49,8 +57,11 @@ export function buildRecommendations(input: {
   segments: SegmentSummary[];
   pricing: PricingSignal[];
   experiments: ExperimentSignal[];
+  inventory?: InventorySignal;
+  /** verkaufte Stueck je Produktseitenaufruf (shopweit), fuer Artikel ohne eigene Verkaufshistorie */
+  productViewToUnitRate?: number;
 }): Recommendation[] {
-  const { funnel, segments, pricing, experiments } = input;
+  const { funnel, segments, pricing, experiments, inventory } = input;
   const runningExperiments = experiments.filter((e) => e.status === 'running').length;
   const recs: Recommendation[] = [];
   const revenue30 = monthlyRevenue(funnel);
@@ -203,6 +214,47 @@ export function buildRecommendations(input: {
       confidence: 'hoch',
       effort: 'gering',
       quickWin: true,
+    });
+  }
+
+  if (inventory?.problemSources.length) {
+    recs.push({
+      id: 'inventory-sources',
+      title: 'Lagerbestands-Abgleich prüfen',
+      why: `${inventory.problemSources.map((p) => `${p.name}: ${p.problem}`).join(' · ')}. Solange Bestände veraltet sind, zeigt ShopPulse Kund:innen bewusst keine Verfügbarkeit und keine Knappheitshinweise an.`,
+      action: 'Im Tab "Lager & Verfügbarkeit" die Quelle prüfen (Zugangsdaten, Export-Job) und den Abgleich erneut starten.',
+      nudgeType: null,
+      potentialPerMonth: 0,
+      assumption: '–',
+      confidence: 'hoch',
+      effort: 'gering',
+      quickWin: true,
+    });
+  }
+
+  if (inventory?.outOfStockWithDemand.length) {
+    // Bisheriger Absatz des Artikels ist die beste Schaetzung fuer entgangene Nachfrage. Ohne Verkaufs-
+    // historie: Aufrufe x shopweite Kaufquote je Produktaufruf.
+    const viewToUnit = input.productViewToUnitRate ?? 0;
+    const monthly = (p: { productViews: number; unitsSold: number; price: number }) =>
+      (p.unitsSold > 0 ? p.unitsSold : p.productViews * viewToUnit) * scale * p.price;
+    const items = [...inventory.outOfStockWithDemand].sort((a, b) => monthly(b) - monthly(a));
+    const lost = items.reduce((sum, p) => sum + monthly(p), 0);
+    recs.push({
+      id: 'out-of-stock-demand',
+      title: `${items.length} ausverkaufte${items.length > 1 ? ' Produkte' : 's Produkt'} mit Nachfrage nachbestellen`,
+      why: `${items
+        .slice(0, 3)
+        .map((p) => `${p.name} (${fmtNum(p.productViews)} Aufrufe, ${fmtNum(p.unitsSold)} verkauft im Zeitraum)`)
+        .join(', ')} ist online nicht mehr lieferbar, wird aber weiter nachgefragt. Solange der Bestand fehlt, kann keine dieser Sessions konvertieren.`,
+      action:
+        'Nachbestellung priorisieren; bis dahin Filialbestand zur Abholung anbieten (die Verfügbarkeitsanzeige zeigt ihn automatisch) und eine "Benachrichtigen, wenn verfügbar"-Option einblenden.',
+      nudgeType: null,
+      potentialPerMonth: eur(lost),
+      assumption: `Nachfrage wie im Auswertungszeitraum (bisheriger Absatz × Preis; ohne Verkäufe: Aufrufe × ${fmtPct(viewToUnit)} Kaufquote je Aufruf) – gilt pro Monat, den der Artikel ausverkauft bleibt.`,
+      confidence: 'mittel',
+      effort: 'mittel',
+      quickWin: false,
     });
   }
 

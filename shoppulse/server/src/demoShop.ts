@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db, type ProductRow, type ShopRow } from './db/index.js';
+import { demoErpCsv } from './db/demoData.js';
 
 /**
  * Minimaler Beispiel-Shop, um das Snippet (Tracking, Consent, Nudges) live auszuprobieren:
@@ -35,11 +36,19 @@ function layout(shop: ShopRow, page: string, attrs: string, body: string) {
 </body></html>`;
 }
 
+/** Simulierter ERP-Export fuer die Demo-Lagerintegration (CSV-Feed). */
+demoShopRouter.get('/:shopId/erp-bestand.csv', (req, res) => {
+  const shop = db.prepare('SELECT * FROM shops WHERE id = ? AND is_demo = 1').get(req.params.shopId);
+  if (!shop) return res.status(404).send('Nur für Demo-Shops verfügbar');
+  res.type('text/csv').send(demoErpCsv());
+});
+
 demoShopRouter.get('/:shopId/:step?', (req, res) => {
   const shop = db.prepare('SELECT * FROM shops WHERE id = ?').get(req.params.shopId) as ShopRow | undefined;
   if (!shop) return res.status(404).send('Shop nicht gefunden');
-  const products = db.prepare('SELECT * FROM products WHERE shop_id = ? ORDER BY id LIMIT 3').all(shop.id) as ProductRow[];
-  const p = products[0] ?? { sku: 'DEMO-1', name: 'Demo-Produkt', price: 49.9, stock: 4 };
+  const products = db.prepare('SELECT * FROM products WHERE shop_id = ? ORDER BY id').all(shop.id) as ProductRow[];
+  const requested = typeof req.query.sku === 'string' ? products.find((x) => x.sku === req.query.sku) : undefined;
+  const p = requested ?? products[0] ?? { sku: 'DEMO-1', name: 'Demo-Produkt', price: 49.9, stock: 4 };
   const base = `/demo-shop/${shop.id}`;
   res.type('html');
 
@@ -73,16 +82,17 @@ demoShopRouter.get('/:shopId/:step?', (req, res) => {
         <h1>${esc(p.name)}</h1>
         <div class="price">${p.price.toFixed(2).replace('.', ',')} €</div>
         <p style="color:#777;font-size:13px">Niedrigster Preis der letzten 30 Tage: ${reference.toFixed(2).replace('.', ',')} € (Demo-Referenzpreis)</p>
+        <div data-sp-availability style="margin:10px 0"></div>
         <div data-sp-nudge-slot></div>
         <button data-sp-add-to-cart onclick="location.href='${base}/checkout'">In den Warenkorb</button>
         <p style="font-size:13px;color:#666">Tipp: Mauszeiger &gt; 2 s über dem Button halten, ohne zu klicken → "Zögern" wird gemessen.</p>
       </div>
       ${
         variants.length
-          ? `<div class="card"><h3>Varianten</h3><div class="variants">${variants
+          ? `<div class="card"><h3>Weitere Produkte</h3><div class="variants">${variants
               .map(
                 (v) =>
-                  `<div class="variant" data-sp-variant-sku="${esc(v.sku)}"><strong>${esc(v.name)}</strong><br>${v.price.toFixed(2)} €</div>`,
+                  `<a class="variant" style="color:inherit;text-decoration:none" href="${base}?sku=${encodeURIComponent(v.sku)}" data-sp-variant-sku="${esc(v.sku)}"><strong>${esc(v.name)}</strong><br>${v.price.toFixed(2)} €<div data-sp-availability-sku="${esc(v.sku)}" data-sp-show-stores="false" style="margin-top:6px"></div></a>`,
               )
               .join('')}</div></div>`
           : ''

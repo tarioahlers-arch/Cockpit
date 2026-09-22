@@ -1,0 +1,15 @@
+{
+  "name": "shoppulse",
+  "private": true,
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w server && npm run build -w web",
+    "seed:demo": "npm run seed:demo -w server",
+    "test": "npm run test -w server"
+  }
+}

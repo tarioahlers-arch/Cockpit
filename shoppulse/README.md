@@ -1,0 +1,137 @@
+# ShopPulse
+
+**Behavioral Growth Engine für Online-Shops.** SaaS-MVP nach dem Konzeptdokument
+„ShopPulse – Behavioral Growth Engine für Online-Shops“ (Stand September 2026).
+
+ShopPulse hilft Shopbetreiber:innen, Conversion Rate, Bestellwert und Marge mit
+Verhaltensökonomik und Daten zu steigern statt nach Bauchgefühl. Jede Empfehlung
+begründet, *warum* sie wirkt.
+
+## Die vier Module
+
+| Modul | Umsetzung im MVP |
+|---|---|
+| **A) Behavioral Analytics Layer** | Tracking-Snippet erfasst Mikro-Interaktionen: Seitenaufrufe, Scrolltiefe, **Zögern vor dem Kauf-Button** (Hover > 2 s ohne Klick), Preisfilter, Warenkorb, Checkout, Kauf. Funnel-KPIs und eine **erklärbare Segmentierung** nach Entscheidungsmustern: preissensibel, bequemlichkeitsorientiert, zögernd, stöbernd. Jede Zuordnung nennt die auslösenden Signale. |
+| **B) Nudge-Engine** | Vier Nudge-Typen: **Anchoring**, **Social Proof**, **Scarcity** und **Decoy**. Jeder läuft als A/B-Test gegen eine Kontrollgruppe (stabile Zuweisung je Besucher:in). Die Auswertung nutzt einen Zwei-Stichproben-Test mit 95-%-Konfidenzintervall und Stichprobenplanung. Der Schutz gegen „Peeking“ läuft über die Haybittle-Peto-Grenze. |
+| **C) Pricing Intelligence** | Wettbewerbspreise per CSV/API-Import mit **SKU-Matching**: zuerst per EAN, sonst per Titelähnlichkeit, bei Bedarf manuell. Die **Preiselastizität** wird per Log-Log-Regression aus der eigenen Preis-/Absatzhistorie geschätzt. Die Preisempfehlung maximiert den Deckungsbeitrag, in Schritten von höchstens ±10 %. |
+| **D) Beratungs-Dashboard** | Klartext-Reports statt Rohdaten: Handlungsempfehlungen, priorisiert nach geschätztem Umsatzpotenzial, jeweils mit „Warum“, Annahme, Konfidenz und Aufwand. A/B-Ergebnisse erklären, welches Segment wie reagiert hat. Dazu kommt ein **Onboarding-Wizard** (Shop-Daten → Integration → Quick-Win-Analyse). |
+
+### Ehrlichkeit als Designprinzip
+
+Nudges zeigen nur echte Daten, sonst erscheinen sie gar nicht:
+
+- **Social Proof:** Die Kaufzahlen berechnet der Server aus tatsächlich getrackten
+  Käufen. Unterhalb von `minCount` wird nichts angezeigt.
+- **Scarcity:** Nur echter Lagerbestand, aus der Produkttabelle oder `data-sp-stock`.
+  Keine Countdown-Timer.
+- **Anchoring:** Nur wenn der Shop einen gültigen Referenzpreis über dem aktuellen Preis
+  setzt, z. B. den niedrigsten Preis der letzten 30 Tage gemäß PAngV § 11.
+- **Decoy:** Der Badge „Beliebteste Wahl“ erscheint nur, wenn die Zielvariante tatsächlich
+  am häufigsten gewählt wird.
+
+### Datenschutz (DSGVO)
+
+- **Einwilligung zuerst:** Das Snippet speichert und sendet **nichts**, bevor
+  `ShopPulse.consent(true)` aufgerufen wurde. Vorher wird auch kein Nudge ausgespielt.
+- **Pseudonyme IDs:** Besucher- und Session-IDs sind zufällig erzeugt. Es werden keine
+  IP-Adressen, kein User-Agent, keine Cookies von Drittanbietern und keine personenbezogenen
+  Daten gespeichert.
+- **Widerruf:** `ShopPulse.consent(false)` löscht die lokale ID.
+
+## Architektur
+
+```
+server/   Express-API (TypeScript) + SQLite (better-sqlite3)
+  src/public/snippet.js      Tracking- & Nudge-Snippet (Vanilla JS, ohne Abhängigkeiten)
+  src/analytics/             metrics, segmentation, nudges, experiments, stats, pricing, insights
+  src/routes/                shops (+ Dashboard), experiments, pricing, public (collect/config)
+  src/demoShop.ts            Test-Shop-Seite zum Ausprobieren des Snippets
+web/      React-Dashboard (Vite, Recharts)
+```
+
+```
+Shop (Snippet) ──POST /api/collect──▶ events ──▶ Funnel · Segmente · A/B-Auswertung ──▶ Dashboard
+      ▲                                                              │
+      └──GET /api/public/config (laufende Experimente + echte Daten)◀┘  Feedback-Loop
+Wettbewerbspreise (CSV/API) ──▶ SKU-Matching ──▶ Elastizität + Preisempfehlung ──┘
+```
+
+Wichtige Endpunkte:
+
+- `POST /api/shops`: Shop anlegen (erzeugt den öffentlichen Snippet-Key)
+- `POST /api/shops/demo`: Demo-Shop mit 30 Tagen synthetischer Daten
+- `GET /api/shops/:id/overview?days=30`: KPIs, Segmente, priorisierte Empfehlungen, Verlauf
+- `GET|POST /api/shops/:id/experiments`, `PATCH /api/experiments/:id` (`running`/`stopped`)
+- `GET /api/shops/:id/pricing`, `POST /api/shops/:id/products`,
+  `POST /api/products/:id/history`, `POST /api/shops/:id/competitor-offers`
+- `POST /api/collect` und `GET /api/public/config`: öffentlich, vom Snippet genutzt
+- `GET /snippet.js`, `GET /demo-shop/:shopId`
+
+## Setup
+
+Das Projekt liegt im Unterordner `shoppulse/` und ist unabhängig von den anderen
+Anwendungen im Repository.
+
+```bash
+cd shoppulse
+npm install
+
+# optional: Demo-Shop mit Beispieldaten anlegen (geht auch per Button im UI)
+npm run seed:demo
+
+# Terminal 1: API auf http://localhost:4100
+npm run dev:server
+
+# Terminal 2: Dashboard auf http://localhost:5174
+npm run dev:web
+
+# Tests (Statistik, Elastizität, SKU-Matching, Segmentierung, A/B-Auswertung)
+npm test
+```
+
+Die SQLite-Datenbank wird beim ersten Start unter `server/data/shoppulse.db` angelegt.
+
+| Variable | Zweck | Default |
+|---|---|---|
+| `PORT` | Port der API | `4100` |
+| `SHOPPULSE_DATA_DIR` / `SHOPPULSE_DB` | Speicherort der Datenbank | `server/data/shoppulse.db` |
+| `SHOPPULSE_CACHE_TTL_MS` | Wie lange Dashboard-Auswertungen Rohereignisse cachen | `60000` |
+
+### Snippet ausprobieren
+
+Im Dashboard auf **Test-Shop ↗** klicken, im Banner „Einverstanden“ wählen, den Mauszeiger
+auf dem Kauf-Button verweilen lassen und den Kauf abschließen. Die Ereignisse erscheinen nach
+spätestens 60 s im Dashboard. Beim Demo-Shop läuft ein Social-Proof-Test: Je nach
+zugewiesener Variante erscheint über dem Button z. B. „11× in den letzten 48 Stunden gekauft“.
+
+## Bewusste Grenzen des MVP
+
+- **Demo-Daten:** Die Beispieldaten sind **synthetisch** und im UI als „Demo-Daten“
+  gekennzeichnet. Die Effekte darin sind so gesetzt, dass alle Auswertungsfälle sichtbar
+  werden (Gewinner, kein Effekt, Entwurf). Sie belegen keine realen Uplifts.
+- **Potenziale** im Dashboard sind konservative Schätzungen. Die zugrunde liegende Annahme
+  steht jeweils dabei. Validiert wird eine Maßnahme erst durch einen A/B-Test.
+- **Kein Scraping:** Wettbewerbspreise kommen per Import (CSV/API), automatisiertes Scraping
+  ist bewusst nicht eingebaut. Nutzungsbedingungen und Wettbewerbsrecht müssen vorher
+  rechtlich geprüft werden (siehe Konzept, Kapitel 8).
+- **Segmentierung** ist regelbasiert und damit erklärbar. Statistische Clusterverfahren
+  sind der nächste Ausbauschritt.
+- **Klartext-Reports** entstehen aus Vorlagen mit echten Kennzahlen. Eine LLM-gestützte
+  Report-Generierung ist als Ausbaustufe vorgesehen.
+- **Skalierung:** SQLite und ein kurzer In-Memory-Cache reichen für Pilotkunden. Für den
+  Produktivbetrieb laut Konzept: Event-Pipeline (Kafka/Kinesis) → Feature Store →
+  voraggregierte Auswertungen.
+- **Kein Login:** Es gibt noch keine Mandanten- und Rollenverwaltung (Roadmap-Phase 4).
+
+## Roadmap-Bezug
+
+Der Stand entspricht **Phase 1 (MVP)** des Konzepts: Tracking-Snippet, einfache
+Segmentierung, Nudge-Typen, Basis-Dashboard. Enthalten sind außerdem das A/B-Framework aus
+**Phase 2** und ein erster Pricing-Intelligence-Kern aus **Phase 3**.
+
+Nächste Schritte:
+
+1. Pilotshops anbinden.
+2. Shopify-App und Shopware-Plugin als One-Click-Integration bauen.
+3. Authentifizierung ergänzen.
+4. Anbindung eines Preisdaten-Anbieters prüfen.

@@ -15,6 +15,8 @@ backend/   Node.js/Express + Prisma (PostgreSQL) + Socket.io + Stripe (Test-Modu
 web/       Next.js Web-App (Kund:innen, Helfer:innen, Admin-Panel)
 mobile/    React Native (Expo) App — dieselbe API, iOS/Android
 docs/      API_CONTRACT.md — vollständige REST/WebSocket-Referenz
+shopfil/   ShopFil — digitales Testkauf-Cockpit (eigenständig, siehe shopfil/README.md)
+shoppulse/ ShopPulse — Behavioral Growth Engine für Online-Shops (eigenständig, siehe shoppulse/README.md)
 ```
 
 Deployment-Anleitung (Vercel + Railway): [`DEPLOYMENT.md`](DEPLOYMENT.md).

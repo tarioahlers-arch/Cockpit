@@ -62,77 +62,6 @@ web/      React-Cockpit (Vite) mit Score-Badges, Trend-Chart, Kategorien, Empfeh
 - `GET /api/shops/:id` — Shop-Historie, aktuelle Kategorie-Scores und
   Empfehlungen
 
-## Zusatzmodul: Prospecting (automatisierte Firmenrecherche)
-
-Ergänzt ShopFil um eine Vertriebs-Pipeline: Zielkunden-Kandidaten automatisiert
-finden, kurz vorqualifizieren und mit dem bestehenden Scanner nach Schwachstellen
-priorisieren — als Basis für eine Beratungsansprache.
-
-**Modul 1 — Companies.** Neue Tabelle `companies` mit erzwungener Belegpflicht:
-`quelle_url`/`quelle_typ` sind `NOT NULL` (DB-Constraint) — ein Datensatz ohne
-Fundstelle kann technisch nicht angelegt werden. Jede recherchierte Firma trägt
-bis zur manuellen Prüfung `verifiziert = false` und wird im UI mit einem
-„unverifiziert“-Badge markiert.
-
-**Modul 2 — Batch-Analyzer** (`POST /api/companies/batch-analyze`). Lässt den
-bestehenden automatisierten Scanner (ohne manuelle Checkliste) sequenziell über
-mehrere Companies laufen (`audit_runs.mode = 'lead_scan'`), legt dafür je Firma
-einen `Shop`-Eintrag an und berechnet einen Score ausschließlich aus den
-automatisierten Kriterien — zur Priorisierung, welche Leads die schwächsten
-Online-Shops haben. Wird **nie automatisch** ausgelöst, sondern nur per
-Bestätigung durch den Nutzer.
-
-**Modul 3 — Automatisierte Firmenrecherche** (`POST /api/research/runs`,
-`server/src/research/`). Durchsucht öffentliche Händler-/Gütesiegel-Verzeichnisse
-nach neuen Kandidaten:
-
-| Quelle | Typ | Branche |
-|---|---|---|
-| Euronics-Händlerverzeichnis | Verbandsliste | Elektronik |
-| hagebau-Marktfinder | Verbandsliste | Baumarkt |
-| EDEKA-Marktfinder | Verbandsliste | Lebensmittel |
-| Trusted-Shops-Verzeichnis | Gütesiegel-Verzeichnis | branchenübergreifend |
-
-Bewusst **nicht** umgesetzt (Phase 2, offene Punkte):
-- **Handelsregister/Unternehmensregister.de** — i. d. R. Session-/Captcha-Schutz,
-  nicht für Bulk-Abfragen vorgesehen; erfordert vorherige Einzelfallprüfung der
-  Nutzungsbedingungen.
-- **IHK-Verzeichnisse** — keine bundeseinheitliche Schnittstelle, 79 Kammern mit
-  je eigenem System; sinnvoll erst nach Festlegung einer konkreten Ziel-IHK.
-- **LinkedIn & vergleichbare Plattformen** — explizit ausgeschlossen, da deren
-  Nutzungsbedingungen automatisiertes Scraping untersagen.
-- Reguläre Websuche wird nur zur **Einzel-Verifikation** eines bereits
-  gefundenen Kandidaten genutzt, nie zur Massenerfassung.
-
-**Pipeline pro Lauf:** Quelle abfragen → Dedup (Name normalisiert + Domain,
-gegen bestehende `companies` und gegen den laufenden Batch) → E-Commerce-
-Vorprüfung (Regex auf „Warenkorb“/„Checkout“/„zur Kasse“ auf der Zielseite) →
-nur bei erkennbarem Shop landet der Treffer in `research_candidates`
-(Staging-Tabelle). **Nichts wird direkt in `companies` geschrieben** — das UI
-zeigt eine Vorschau mit Quelle-Link, der Nutzer wählt einzelne Treffer ab und
-bestätigt erst dann die Übernahme (`POST /api/research/runs/:id/commit`).
-Übersprungene Duplikate, Firmen ohne erkennbaren Shop und Quellenfehler landen
-im `research_log` (sichtbar im UI-Protokoll).
-
-**Rechtlicher Hinweis:** `server/src/research/politeFetch.ts` prüft vor jedem
-Request die `robots.txt` der Zieldomain und hält einen Mindestabstand zwischen
-Anfragen an denselben Host ein (`RESEARCH_MIN_DELAY_MS`, Default 1500 ms).
-Das ersetzt **keine** manuelle Prüfung der Nutzungsbedingungen jeder Quelle vor
-echtem Produktivbetrieb — das bleibt eine bewusste, menschliche Entscheidung.
-Bei Verbandslisten empfiehlt sich der Start mit kleinen Stichproben (Default
-20, Obergrenze 50 Treffer pro Lauf) statt Vollflächen-Crawling.
-
-**Wichtige Einschränkung dieser Entwicklungsumgebung:** Die Connectors
-(`server/src/research/connectors/*.ts`) enthalten Best-Effort-Annahmen über
-Endpunkt-URLs und Seitenstruktur der vier Quellen — sie wurden **nicht** gegen
-die echten, live erreichbaren Seiten verifiziert, da diese Sandbox keinen
-allgemeinen Internetzugriff hat. Die Extraktionslogik (bevorzugt JSON-LD
-`LocalBusiness`-Markup, sonst CSS-Selektor-Fallback) wurde stattdessen
-gegen lokale Fixtures Ende-zu-Ende getestet (Dedup, E-Commerce-Vorprüfung,
-Logging, Vorschau-vor-Speichern-Flow funktionieren nachweislich). Vor
-Produktivbetrieb: `buildSearchUrl`/`selectorFallback` je Connector gegen die
-echten Seiten prüfen und anpassen.
-
 ## Setup
 
 Dieses Projekt liegt im Unterordner `shopfil/`, unabhängig von den anderen
@@ -155,16 +84,8 @@ Die SQLite-Datenbank wird beim ersten Start automatisch unter
 
 ### Hinweis zu Unternehmens-Proxys
 
-Scanner und Recherche-Connectors respektieren `HTTPS_PROXY`/`HTTP_PROXY`, falls
-sie hinter einem TLS-inspizierenden Firmenproxy ausgeführt werden.
-
-### Umgebungsvariablen für die Recherche (optional)
-
-| Variable | Zweck | Default |
-|---|---|---|
-| `RESEARCH_MIN_DELAY_MS` | Mindestabstand zwischen Requests an denselben Host | `1500` |
-| `BATCH_ANALYZE_DELAY_MS` | Pause zwischen Firmen im Batch-Analyzer | `1000` |
-| `EURONICS_BASE_URL`, `HAGEBAU_BASE_URL`, `EDEKA_BASE_URL`, `TRUSTED_SHOPS_BASE_URL` | Basis-URL je Connector (auch für Tests gegen lokale Fixtures) | die jeweilige echte Domain |
+Der Scanner respektiert `HTTPS_PROXY`/`HTTP_PROXY`, falls der Testkauf hinter
+einem TLS-inspizierenden Firmenproxy ausgeführt wird.
 
 ## Deployment auf Render
 
@@ -199,13 +120,12 @@ Zeilen am Ende der Datei aktivieren (Persistent Disk unter `/var/data`,
   passende Chromium-Build.
 - 512 MB RAM (Free-Plan) reichen für einzelne, kurze Scans mit headless
   Chromium — bei mehreren parallelen Testkäufen kann es eng werden.
-- Die Recherche-Connectors brauchen weiterhin die in der Sandbox nicht
-  verifizierte Live-Anpassung (siehe oben) — das ändert sich durch das
-  Deployment nicht von selbst.
 
-**Ohne Blueprint (manuell):** Web Service anlegen, Environment auf **Docker**
-stellen, Dockerfile-Pfad `shopfil/Dockerfile` und Docker-Context `shopfil`
-setzen. Für persistente Daten zusätzlich einen bezahlten Plan wählen,
+**Ohne Blueprint (manuell):** Web Service anlegen, Language auf **Docker**
+stellen, **Root Directory** auf `shopfil` setzen (Render sucht die Dockerfile
+dann automatisch unter `shopfil/Dockerfile` — ein zusätzliches Dockerfile-
+Path-Feld gibt es dafür nicht/verschwindet, sobald Root Directory gesetzt
+ist). Für persistente Daten zusätzlich einen bezahlten Plan wählen,
 Persistent Disk mit Mount-Pfad `/var/data` hinzufügen und die
 Umgebungsvariable `DATA_DIR=/var/data` setzen.
 

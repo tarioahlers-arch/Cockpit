@@ -17,14 +17,6 @@ db.pragma('foreign_keys = ON');
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
 db.exec(schema);
 
-function migrateAuditRunsMode() {
-  const columns = db.prepare('PRAGMA table_info(audit_runs)').all() as { name: string }[];
-  if (!columns.some((c) => c.name === 'mode')) {
-    db.exec(`ALTER TABLE audit_runs ADD COLUMN mode TEXT NOT NULL DEFAULT 'full'`);
-  }
-}
-migrateAuditRunsMode();
-
 function seedCriteria() {
   const upsert = db.prepare(`
     INSERT INTO criteria (key, category, label, description, weight, automated, recommendation, source)

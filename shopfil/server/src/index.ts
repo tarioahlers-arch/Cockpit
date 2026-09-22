@@ -7,8 +7,6 @@ import './db/index.js';
 import { shopsRouter } from './routes/shops.js';
 import { auditsRouter } from './routes/audits.js';
 import { criteriaRouter } from './routes/criteria.js';
-import { researchRouter } from './routes/research.js';
-import { companiesRouter } from './routes/companies.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -21,8 +19,6 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'ShopFil API' }
 app.use('/api/shops', shopsRouter);
 app.use('/api', auditsRouter);
 app.use('/api/criteria', criteriaRouter);
-app.use('/api/research', researchRouter);
-app.use('/api/companies', companiesRouter);
 
 // Im Produktivbetrieb (z. B. Docker-Image fuer Render) liegt das gebaute
 // Web-Frontend unter server/public und wird direkt vom API-Server mitgeliefert -

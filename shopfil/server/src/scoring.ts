@@ -39,19 +39,9 @@ export interface ScoringSummary {
 
 const RECOMMENDATION_THRESHOLD = 70;
 
-interface ComputeScoringOptions {
-  /**
-   * true fuer Modul-2-Lead-Scans: nur automatisierte Kriterien fliessen ein,
-   * die (immer leeren) manuellen goodFil-Kriterien werden nicht erwartet und
-   * bestimmen daher auch nicht isComplete. Fuer volle Testkaeufe weglassen.
-   */
-  onlyAutomated?: boolean;
-}
-
-export function computeScoring(rows: ResultRow[], options: ComputeScoringOptions = {}): ScoringSummary {
-  const relevantRows = options.onlyAutomated ? rows.filter((r) => r.automated === 1) : rows;
-  const scored = relevantRows.filter((r) => r.score !== null && r.score !== undefined);
-  const isComplete = scored.length === relevantRows.length && relevantRows.length > 0;
+export function computeScoring(rows: ResultRow[]): ScoringSummary {
+  const scored = rows.filter((r) => r.score !== null && r.score !== undefined);
+  const isComplete = scored.length === rows.length && rows.length > 0;
 
   const categoryAgg = new Map<string, { weightedSum: number; weightSum: number }>();
   let overallWeightedSum = 0;

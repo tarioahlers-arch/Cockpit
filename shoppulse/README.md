@@ -48,7 +48,7 @@ Regeln für die Anzeige:
 
 **Grenzen:**
 - **Nicht live geprüft:** Die Connectoren für Shopify, Shopware und WooCommerce sind gegen simulierte API-Antworten getestet, nicht gegen echte Shops. Vor dem Produktivbetrieb bitte mit einem Test-Zugang prüfen.
-- **Zugangsdaten:** Siehe „Noch offen für den Produktivbetrieb“ im Abschnitt Sicherheit.
+- **Zugangsdaten** werden verschlüsselt gespeichert (siehe Abschnitt Sicherheit).
 - **Firmenproxy:** Der Abruf über einen Firmenproxy (`HTTPS_PROXY`) wird noch nicht unterstützt.
 - **Reservierungen:** Reservierungen und Zulauf (bestellte Ware) werden nicht separat geführt. Maßgeblich ist der von der Quelle gemeldete verfügbare Bestand.
 
@@ -122,13 +122,70 @@ Weitere Regeln:
 
 Stichprobe: Wurde testweise eine einzelne Eigentumsprüfung entfernt, schlug der Test fehl.
 
-### Noch offen für den Produktivbetrieb
+### Team, Rollen und Konto
 
-- **Ein Konto pro Organisation:** Weitere Mitglieder einladen, Rollen und Passwort-Reset per E-Mail sind noch nicht umgesetzt.
-- **Zugangsdaten:** Zugangsdaten zu Fremdsystemen liegen unverschlüsselt in SQLite. Nötig ist ein Secret-Store oder Verschlüsselung mit einem Schlüssel außerhalb der Datenbank.
-- **HTTPS:** Betrieb nur hinter HTTPS, mit `SHOPPULSE_COOKIE_SECURE=1` und `SHOPPULSE_TRUST_PROXY`.
-- **Brute-Force-Zähler:** Er liegt im Arbeitsspeicher. Bei mehreren Server-Instanzen braucht es einen gemeinsamen Speicher (z. B. Redis).
-- **Rest-Risiko DNS-Rebinding:** Zwischen Prüfung und Verbindung kann sich die DNS-Auflösung theoretisch ändern. Abhilfe wäre, auf die geprüfte IP zu verbinden, oder ein Egress-Proxy mit Sperrliste.
+| Rolle | Darf |
+|---|---|
+| **Inhaber:in** | alles, inkl. Team verwalten und Shops löschen |
+| **Bearbeiten** | Shops, Tests, Preise und Lager anlegen und ändern |
+| **Lesezugriff** | alle Auswertungen ansehen, nichts ändern (auch nicht über die API) |
+
+- **Einladungen:** Inhaber:innen laden per E-Mail ein. Der Link ist 7 Tage gültig und nur einmal verwendbar, gespeichert ist nur der Hash. Ein Konto gehört genau einer Organisation.
+- **Rollen:** Rollenwechsel wirken bei der nächsten Anfrage. Entfernte Mitglieder verlieren den Zugriff sofort. Die letzte Inhaberin bzw. der letzte Inhaber kann weder entfernt noch herabgestuft werden.
+- **Passwort vergessen:** Der Link ist 60 Minuten gültig und nur einmal verwendbar. Die Antwort ist immer gleich, sodass sich nicht prüfen lässt, ob ein Konto existiert. Nach dem Zurücksetzen werden alle Sitzungen abgemeldet.
+- **Passwort ändern:** Alle anderen Sitzungen werden dabei abgemeldet.
+- **Sperre nach Fehlversuchen:** Sie gilt für Login, Registrierung, Reset und Einladungen und liegt in der Datenbank. Damit überdauert sie Neustarts und gilt für alle Prozesse mit derselben Datenbank.
+
+### Verschlüsselte Zugangsdaten
+
+Zugangsdaten zu Fremdsystemen (Shopify-Token, Shopware-Schlüssel, WooCommerce-Secret, Feed-Header) werden mit **AES-256-GCM** verschlüsselt gespeichert. Der Schlüssel liegt außerhalb der Datenbank in `SHOPPULSE_SECRET_KEY`. Manipulierte Chiffrate werden erkannt.
+
+- **Ältere Versionen:** Klartext aus älteren Versionen wird beim Start automatisch verschlüsselt.
+- **Schlüsselwechsel:**
+  1. Neuen Schlüssel als `SHOPPULSE_SECRET_KEY` setzen, den alten als `SHOPPULSE_SECRET_KEY_PREVIOUS`.
+  2. `npm run rotate-secrets` ausführen.
+  3. Den alten Schlüssel entfernen.
+- **Ohne Schlüssel im Entwicklungsmodus:** ShopPulse legt dann eine Schlüsseldatei `server/data/secret.key` an und warnt im Log. Im Produktivmodus ist der Schlüssel Pflicht.
+
+### Schutz vor DNS-Rebinding
+
+Die Adressprüfung passiert zusätzlich **beim Verbindungsaufbau**: Die Verbindung wird genau zu der geprüften, öffentlichen IP aufgebaut. Ein Umbiegen der DNS-Auflösung zwischen Prüfung und Verbindung ist damit ausgeschlossen. Getestet ist das mit einem Hostnamen, der auf `127.0.0.1` auflöst.
+
+### Grenzen
+
+- **SQLite:** Die Datenbank ist für **einen Server** ausgelegt. Mehrere Prozesse auf demselben Host teilen sich Sperren und Sitzungen. Für mehrere Server braucht es einen Umzug auf PostgreSQL.
+- **Keine Zwei-Faktor-Anmeldung** und kein Single Sign-on.
+- **Ein Konto pro E-Mail-Adresse:** Dieselbe Person kann nicht mehreren Organisationen angehören.
+
+## Produktivbetrieb
+
+Mit `NODE_ENV=production` liefert der Server API und Dashboard unter **einer** Adresse aus. Dabei gilt:
+- Das Session-Cookie wird nur über HTTPS gesendet (`Secure`).
+- Der Server setzt HSTS und eine strikte Content-Security-Policy.
+
+Er **startet nicht**, wenn eine dieser Einstellungen fehlt:
+- `SHOPPULSE_SECRET_KEY`
+- `SHOPPULSE_PUBLIC_URL` (https)
+- `SHOPPULSE_SMTP_URL`
+- `SHOPPULSE_TRUST_PROXY`
+
+Mit Docker und automatischem HTTPS über Caddy/Let's Encrypt:
+
+```bash
+cd shoppulse
+cp .env.production.example .env.production   # ausfüllen; Schlüssel: openssl rand -hex 32
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+```
+
+Die Daten liegen im Volume `shoppulse-data`. **Sichern Sie Volume und `SHOPPULSE_SECRET_KEY` getrennt voneinander:** Ohne Schlüssel sind die gespeicherten Zugangsdaten nicht mehr lesbar.
+
+Ohne Docker:
+1. `npm run build`
+2. Umgebungsvariablen setzen.
+3. `npm start`
+4. Einen HTTPS-Reverse-Proxy auf Port 4100 davorschalten.
+
+**Nicht getestet:** Das Docker-Image konnte in der Entwicklungsumgebung nicht gebaut werden, dort läuft kein Docker-Daemon. Getestet wurden Build und Start im Produktivmodus ohne Docker, inklusive CSP, HSTS, `Secure`-Cookie und Abbruch bei fehlender Konfiguration.
 
 ## Architektur
 
@@ -198,7 +255,11 @@ Organisation und sind deshalb für niemanden sichtbar. Sie werden bewusst per Be
 | `SHOPPULSE_CACHE_TTL_MS` | Wie lange Dashboard-Auswertungen Rohereignisse cachen | `60000` |
 | `SHOPPULSE_DISABLE_SCHEDULER` | `1` schaltet den automatischen Lagerabgleich ab | – |
 | `SHOPPULSE_DASHBOARD_ORIGINS` | Kommagetrennte Origins, die die Dashboard-API per CORS nutzen dürfen | keine (nur same-origin) |
-| `SHOPPULSE_COOKIE_SECURE` | `1` setzt das Session-Cookie nur über HTTPS (Pflicht im Produktivbetrieb) | aus |
+| `NODE_ENV` | `production` aktiviert den Produktivmodus (Konfigurationsprüfung, Secure-Cookie, HSTS, Auslieferung des Dashboards) | – |
+| `SHOPPULSE_PUBLIC_URL` | Öffentliche Adresse (Links in Einladungs- und Reset-Mails) | `http://localhost:5174` |
+| `SHOPPULSE_SECRET_KEY` / `SHOPPULSE_SECRET_KEY_PREVIOUS` | Schlüssel für Zugangsdaten (32 Byte hex/base64) bzw. frühere Schlüssel zur Rotation | Entwicklungsschlüssel in `server/data/secret.key` |
+| `SHOPPULSE_SMTP_URL` / `SHOPPULSE_MAIL_FROM` | Mailversand (`smtps://user:pass@host:465`); ohne Angabe stehen Mails im Server-Log | – |
+| `SHOPPULSE_COOKIE_SECURE` | `1` erzwingt das `Secure`-Cookie auch außerhalb des Produktivmodus | aus (im Produktivmodus an) |
 | `SHOPPULSE_TRUST_PROXY` | Express-`trust proxy` hinter Load Balancer/Reverse Proxy (für korrekte IP und HTTPS-Erkennung) | aus |
 | `SHOPPULSE_LOGIN_MAX_ATTEMPTS` | Fehlversuche pro IP/E-Mail in 15 Minuten | `10` |
 | `SHOPPULSE_OUTBOUND_TIMEOUT_MS` / `SHOPPULSE_OUTBOUND_MAX_BYTES` | Grenzen für Abrufe bei Fremdsystemen | `30000` / 20 MB |
@@ -245,5 +306,5 @@ Nächste Schritte:
 
 1. Pilotshops anbinden.
 2. Shopify-App und Shopware-Plugin als One-Click-Integration bauen.
-3. Team-Funktionen ergänzen: Mitglieder einladen, Rollen, Passwort-Reset.
-4. Anbindung eines Preisdaten-Anbieters prüfen.
+3. Anbindung eines Preisdaten-Anbieters prüfen.
+4. Zwei-Faktor-Anmeldung und bei Bedarf Umzug auf PostgreSQL für mehrere Server.

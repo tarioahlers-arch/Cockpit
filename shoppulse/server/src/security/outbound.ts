@@ -1,11 +1,17 @@
 import dns from 'node:dns/promises';
+import { lookup as dnsLookup, type LookupAddress } from 'node:dns';
 import net from 'node:net';
+import { Agent, fetch as undiciFetch } from 'undici';
 import type { FetchLike } from '../inventory/types.js';
 
 /**
  * Schutz vor Server-Side Request Forgery: Abrufe zu Fremdsystemen duerfen nur oeffentliche
  * Adressen erreichen – keine internen Netze, keinen localhost, keine Cloud-Metadaten-Dienste.
- * Geprueft wird vor JEDEM Request (auch nach Weiterleitungen), nach DNS-Aufloesung.
+ * Geprueft wird zweifach:
+ *  1. vor jedem Request (auch nach Weiterleitungen) – schnelle, verstaendliche Fehlermeldung
+ *  2. beim Verbindungsaufbau selbst (pinnedLookup): genau die Adresse, zu der die Verbindung
+ *     aufgebaut wird, wird geprueft. Damit ist DNS-Rebinding ausgeschlossen – ein Angreifer kann
+ *     die Aufloesung nicht zwischen Pruefung und Verbindung auf eine interne Adresse umbiegen.
  */
 
 const MAX_REDIRECTS = 3;
@@ -73,11 +79,37 @@ export async function assertPublicUrl(rawUrl: string, policy: OutboundPolicy = {
   return url;
 }
 
+type LookupCallback = (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
+
+/** DNS-Aufloesung fuer Sockets: liefert nur oeffentliche Adressen, sonst Fehler (keine Verbindung). */
+export function pinnedLookup(hostname: string, options: { all?: boolean } | number | undefined, callback: LookupCallback) {
+  const all = typeof options === 'object' && !!options?.all;
+  dnsLookup(hostname, { all: true, verbatim: true }, (err, addresses) => {
+    if (err) return callback(err, all ? [] : '', undefined);
+    const blocked = addresses.find((a) => isPrivateAddress(a.address));
+    if (!addresses.length || blocked) {
+      const e = new OutboundBlockedError(`Verbindung zu interner Adresse blockiert (${hostname}).`) as NodeJS.ErrnoException;
+      e.code = 'ESHOPPULSEBLOCKED';
+      return callback(e, all ? [] : '', undefined);
+    }
+    if (all) callback(null, addresses);
+    else callback(null, addresses[0].address, addresses[0].family);
+  });
+}
+
+const pinnedAgent = new Agent({ connect: { lookup: pinnedLookup as never } });
+
+/** fetch, dessen Verbindungen ausschliesslich zu oeffentlichen Adressen aufgebaut werden. */
+export const pinnedFetch: FetchLike = (url, init) =>
+  undiciFetch(url, { ...(init as object), dispatcher: pinnedAgent } as never) as unknown as Promise<Response>;
+
 /**
  * fetch-Ersatz fuer alle Connectoren: prueft Ziel und jede Weiterleitung, bricht nach Timeout ab
  * und begrenzt die Antwortgroesse.
  */
-export function guardedFetch(policy: OutboundPolicy = {}, baseFetch: FetchLike = fetch): FetchLike {
+export function guardedFetch(policy: OutboundPolicy = {}, customFetch?: FetchLike): FetchLike {
+  // Standard: Verbindungen nur zu gepruefter, oeffentlicher Adresse; Ausnahme nur fuer den eigenen Demo-Feed
+  const baseFetch: FetchLike = customFetch ?? (policy.allowPrivate ? fetch : pinnedFetch);
   return async (input, init = {}) => {
     let url = String(input);
     let currentInit: RequestInit = { ...init };

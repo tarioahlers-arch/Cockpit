@@ -1,4 +1,4 @@
-import { db } from '../db/index.js';
+import { db, readSourceConfig } from '../db/index.js';
 import { CONNECTORS } from './connectors/index.js';
 import { ingestInventory, type IngestResult, type SourceRow } from './ingest.js';
 import type { FetchLike, SourceType } from './types.js';
@@ -39,8 +39,8 @@ export async function runSync(
     db.prepare(`INSERT INTO inventory_sync_runs (source_id, status) VALUES (?, 'running')`).run(sourceId).lastInsertRowid,
   );
   try {
-    const config = JSON.parse(source.config) as Record<string, string>;
-    const snapshot = await connector.fetchSnapshot(config, guardedFetch({ allowPrivate: isOwnDemoFeed(source, config) }, opts.fetchImpl ?? fetch));
+    const config = readSourceConfig(source.config);
+    const snapshot = await connector.fetchSnapshot(config, guardedFetch({ allowPrivate: isOwnDemoFeed(source, config) }, opts.fetchImpl));
     const result = ingestInventory(source, snapshot, 'snapshot', { force: opts.force });
     finish(source.id, runId, result.status, result.items, result.message);
     return result;

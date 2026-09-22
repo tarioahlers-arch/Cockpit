@@ -168,3 +168,32 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   expires_at TEXT NOT NULL
 );
+
+-- Einladungen in eine Organisation (Token nur als Hash)
+CREATE TABLE IF NOT EXISTS invitations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  email TEXT NOT NULL COLLATE NOCASE,
+  role TEXT NOT NULL,                  -- owner | editor | viewer
+  token_hash TEXT NOT NULL UNIQUE,
+  invited_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  expires_at TEXT NOT NULL,
+  accepted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Passwort-Reset (einmalig verwendbar, kurze Gueltigkeit)
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  used_at TEXT
+);
+
+-- Fehlversuche (Login, Reset) – in der Datenbank, damit die Sperre Neustarts ueberdauert und
+-- fuer alle Prozesse gilt, die dieselbe Datenbank nutzen
+CREATE TABLE IF NOT EXISTS auth_attempts (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  reset_at INTEGER NOT NULL            -- Unix-Zeit in ms
+);

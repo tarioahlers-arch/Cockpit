@@ -1,0 +1,29 @@
+# Produktivbetrieb: docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+services:
+  shoppulse:
+    build: .
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      SHOPPULSE_TRUST_PROXY: "1"   # genau ein Proxy (Caddy) vor der App
+    volumes:
+      - shoppulse-data:/data
+    # kein veröffentlichter Port: nur über Caddy (HTTPS) erreichbar
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SHOPPULSE_DOMAIN: ${SHOPPULSE_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - shoppulse
+
+volumes:
+  shoppulse-data:
+  caddy-data:

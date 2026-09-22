@@ -1,0 +1,5 @@
+# HTTPS-Reverse-Proxy: Caddy holt und erneuert das TLS-Zertifikat (Let's Encrypt) automatisch.
+{$SHOPPULSE_DOMAIN} {
+	encode gzip
+	reverse_proxy shoppulse:4100
+}

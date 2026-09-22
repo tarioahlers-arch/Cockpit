@@ -12,10 +12,12 @@ export default function ShopView() {
   const id = Number(useParams().id);
   const [shop, setShop] = useState<Shop | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     api.getShop(id).then(setShop).catch((e) => setError(e.message));
+    api.me().then((m) => setRole(m.role)).catch(() => undefined);
   }, [id]);
 
   async function remove() {
@@ -48,9 +50,11 @@ export default function ShopView() {
           <a className="btn secondary small" href={`/demo-shop/${shop.id}`} target="_blank" rel="noreferrer">
             Test-Shop ↗
           </a>
-          <button className="btn danger small" onClick={remove}>
-            Löschen
-          </button>
+          {role === 'owner' && (
+            <button className="btn danger small" onClick={remove}>
+              Löschen
+            </button>
+          )}
         </div>
       </div>
 

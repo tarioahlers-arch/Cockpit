@@ -3,9 +3,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config } from '../config.js';
+import { decryptSecret, encryptSecret, isEncrypted, needsReencryption } from '../security/secrets.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = process.env.SHOPPULSE_DATA_DIR ?? path.resolve(__dirname, '../../data');
+const DATA_DIR = config.dataDir;
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const DB_FILE = process.env.SHOPPULSE_DB ?? path.join(DATA_DIR, 'shoppulse.db');
@@ -40,6 +42,32 @@ function migrate() {
   }[];
   const upd = db.prepare('UPDATE inventory_sources SET push_token_hash = ?, push_token_hint = ?, push_token = NULL WHERE id = ?');
   for (const r of plain) upd.run(sha256(r.push_token), r.push_token.slice(-4), r.id);
+
+  // Rollenmodell owner | editor | viewer (fruehere Bezeichnung "member" = editor)
+  db.exec(`UPDATE users SET role = 'editor' WHERE role = 'member'`);
+
+  // Zugangsdaten der Quellen verschluesselt ablegen (nur Klartext aus aelteren Versionen umwandeln;
+  // Wechsel des Schluessels erfolgt bewusst per `npm run rotate-secrets`)
+  reencryptSourceConfigs('plaintext');
+}
+
+/**
+ * Verschluesselt Quellen-Konfigurationen mit dem aktuellen Schluessel.
+ *  - "plaintext": nur unverschluesselte Altdaten (beim Start, braucht keinen alten Schluessel)
+ *  - "all": zusaetzlich alles, was mit einem frueheren Schluessel verschluesselt ist (Rotation)
+ */
+export function reencryptSourceConfigs(scope: 'plaintext' | 'all' = 'all'): number {
+  const rows = db.prepare('SELECT id, config FROM inventory_sources').all() as { id: number; config: string }[];
+  const upd = db.prepare('UPDATE inventory_sources SET config = ? WHERE id = ?');
+  let n = 0;
+  db.transaction(() => {
+    for (const r of rows) {
+      if (scope === 'plaintext' ? isEncrypted(r.config) : !needsReencryption(r.config)) continue;
+      upd.run(encryptSecret(decryptSecret(r.config)), r.id);
+      n += 1;
+    }
+  })();
+  return n;
 }
 
 export function sha256(value: string): string {
@@ -135,4 +163,14 @@ export function recentEvents(shopId: number, days = 30): EventRow[] {
   if (days >= MAX_DAYS) return entry.events;
   const cutoff = sqliteTs(days * 86_400_000);
   return entry.events.filter((e) => e.ts >= cutoff);
+}
+
+/** Zugangsdaten einer Quelle lesen (entschluesselt). */
+export function readSourceConfig(stored: string): Record<string, string> {
+  return JSON.parse(decryptSecret(stored)) as Record<string, string>;
+}
+
+/** Zugangsdaten einer Quelle zum Speichern vorbereiten (verschluesselt). */
+export function writeSourceConfig(value: Record<string, string>): string {
+  return encryptSecret(JSON.stringify(value));
 }

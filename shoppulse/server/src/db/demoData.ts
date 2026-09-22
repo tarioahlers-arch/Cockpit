@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, getShop, type ShopRow } from './index.js';
+import { db, getShop, writeSourceConfig, type ShopRow } from './index.js';
 import { ingestInventory, type SourceRow } from '../inventory/ingest.js';
 import { recordPush } from '../inventory/sync.js';
 
@@ -261,12 +261,12 @@ function seedInventory(shopId: number) {
       shopId,
       'ERP-Export (CSV-Feed)',
       'csv_url',
-      JSON.stringify({ url: `http://localhost:${port}/demo-shop/${shopId}/erp-bestand.csv` }),
+      writeSourceConfig({ url: `http://localhost:${port}/demo-shop/${shopId}/erp-bestand.csv` }),
       15,
     ).lastInsertRowid,
   );
   const posId = Number(
-    insert.run(shopId, 'Kassensystem Filialen (Push-API)', 'push', '{}', 15).lastInsertRowid,
+    insert.run(shopId, 'Kassensystem Filialen (Push-API)', 'push', writeSourceConfig({}), 15).lastInsertRowid,
   );
   const source = (id: number) => db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(id) as SourceRow;
 

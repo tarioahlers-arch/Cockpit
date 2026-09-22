@@ -3,7 +3,10 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './db/index.js';
-import { authRouter, requireAuth, requireCsrfHeader } from './auth/index.js';
+import { authRouter, enforceReadOnly, requireAuth, requireCsrfHeader, requireOwner } from './auth/index.js';
+import { teamRouter } from './routes/team.js';
+import { config } from './config.js';
+import fs from 'node:fs';
 import { shopsRouter } from './routes/shops.js';
 import { experimentsRouter } from './routes/experiments.js';
 import { pricingRouter } from './routes/pricing.js';
@@ -30,6 +33,8 @@ export function createApp() {
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.set('X-Frame-Options', 'DENY');
+    // HTTPS erzwingen, sobald Cookies nur noch ueber HTTPS laufen (Produktivbetrieb)
+    if (config.cookieSecure) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     next();
   });
 
@@ -62,12 +67,38 @@ export function createApp() {
   // CSV-Uploads (Bestaende, Wettbewerbspreise) koennen gross sein – nur fuer angemeldete Personen relevant
   app.use('/api', express.json({ limit: '10mb' }), requireCsrfHeader);
   app.use('/api/auth', authRouter);
-  app.use('/api', requireAuth);
+  app.use('/api', requireAuth, enforceReadOnly);
+  app.use('/api/org', teamRouter);
+  // Shops loeschen nur fuer Inhaber:innen
+  app.delete('/api/shops/:id', requireOwner);
   app.use('/api/shops', shopsRouter);
   app.use('/api', experimentsRouter);
   app.use('/api', pricingRouter);
   app.use('/api', inventoryRouter);
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Nicht gefunden.' }));
+
+  // --- Dashboard-Oberflaeche (Produktivbetrieb: API und Oberflaeche unter einer Adresse) ---
+  if (fs.existsSync(path.join(config.webDist, 'index.html'))) {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "connect-src 'self'",
+      "font-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; ');
+    const setCsp = (res: express.Response) => res.set('Content-Security-Policy', csp);
+    app.use(express.static(config.webDist, { index: false, setHeaders: setCsp }));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/') || req.path.startsWith('/demo-shop')) return next();
+      setCsp(res);
+      res.sendFile(path.join(config.webDist, 'index.html'));
+    });
+  }
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const status = (err as { status?: number })?.status;

@@ -1,7 +1,7 @@
 import { Router, text, type Request } from 'express';
 import { ownedShop, ownsShop } from '../auth/index.js';
 import crypto from 'node:crypto';
-import { db, sha256 } from '../db/index.js';
+import { db, readSourceConfig, sha256, writeSourceConfig } from '../db/index.js';
 import { assertPublicUrl, OutboundBlockedError } from '../security/outbound.js';
 import { normalizeShopifyDomain } from '../inventory/connectors/shopify.js';
 import { CONNECTORS, SOURCE_TYPES } from '../inventory/connectors/index.js';
@@ -25,7 +25,7 @@ function ownedSource(req: Request): SourceRow | undefined {
 const MAX_LEVELS = 50_000;
 
 function maskConfig(type: string, config: string): Record<string, string> {
-  const c = JSON.parse(config) as Record<string, string>;
+  const c = readSourceConfig(config);
   const secretKeys = new Set((CONNECTORS[type as SourceType]?.fields ?? []).filter((f) => f.secret).map((f) => f.key));
   return Object.fromEntries(
     Object.entries(c).map(([k, v]) => [k, secretKeys.has(k) && v ? `••••${String(v).slice(-4)}` : v]),
@@ -148,7 +148,7 @@ inventoryRouter.post('/shops/:id/inventory/sources', async (req, res) => {
     .prepare(
       'INSERT INTO inventory_sources (shop_id, name, type, config, push_token_hash, push_token_hint, sync_interval_min) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(shop.id, label, type, JSON.stringify(v.config), token?.hash ?? null, token?.hint ?? null, interval);
+    .run(shop.id, label, type, writeSourceConfig(v.config), token?.hash ?? null, token?.hint ?? null, interval);
   const row = db.prepare('SELECT * FROM inventory_sources WHERE id = ?').get(info.lastInsertRowid) as SourceRow;
   // Der Token wird genau einmal im Klartext ausgeliefert; gespeichert ist nur sein Hash
   res.status(201).json({ ...publicSource(row), pushToken: token?.token });
@@ -170,11 +170,11 @@ inventoryRouter.patch('/inventory/sources/:id', async (req, res) => {
   const { name, config, syncIntervalMin, active } = req.body ?? {};
   let newConfig = source.config;
   if (config && typeof config === 'object') {
-    const v = validateConfig(source.type as SourceType, config, JSON.parse(source.config));
+    const v = validateConfig(source.type as SourceType, config, readSourceConfig(source.config));
     if ('error' in v) return res.status(400).json({ error: v.error });
     const reachable = await checkReachable(source.type as SourceType, v.config);
     if (reachable) return res.status(400).json({ error: reachable });
-    newConfig = JSON.stringify(v.config);
+    newConfig = writeSourceConfig(v.config);
   }
   db.prepare('UPDATE inventory_sources SET name = ?, config = ?, sync_interval_min = ?, active = ? WHERE id = ?').run(
     typeof name === 'string' && name.trim() ? name.trim() : source.name,

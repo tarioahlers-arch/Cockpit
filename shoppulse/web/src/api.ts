@@ -238,9 +238,17 @@ export interface Me {
   orgId: number;
   email: string;
   name: string;
-  role: string;
+  role: 'owner' | 'editor' | 'viewer';
   orgName: string;
 }
+
+export interface TeamData {
+  me: number;
+  members: { id: number; email: string; name: string; role: Me['role']; created_at: string }[];
+  invitations: { id: number; email: string; role: Me['role']; expires_at: string; created_at: string }[];
+}
+
+export const ROLE_LABEL: Record<Me['role'], string> = { owner: 'Inhaber:in', editor: 'Bearbeiten', viewer: 'Lesezugriff' };
 
 const post = <T>(path: string, data: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(data) });
 const patch = <T>(path: string, data: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(data) });
@@ -250,6 +258,18 @@ export const api = {
   login: (email: string, password: string) => post<{ ok: true }>('/auth/login', { email, password }),
   register: (data: { email: string; password: string; name: string; organization: string }) => post<{ ok: true }>('/auth/register', data),
   logout: () => post<{ ok: true }>('/auth/logout', {}),
+  forgotPassword: (email: string) => post<{ ok: true; message: string }>('/auth/password/forgot', { email }),
+  resetPassword: (token: string, password: string) => post<{ ok: true }>('/auth/password/reset', { token, password }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    post<{ ok: true }>('/auth/password/change', { currentPassword, newPassword }),
+  invitationInfo: (token: string) =>
+    request<{ email: string; role: Me['role']; orgName: string }>(`/auth/invitation?token=${encodeURIComponent(token)}`),
+  acceptInvitation: (token: string, name: string, password: string) => post<{ ok: true }>('/auth/invitation/accept', { token, name, password }),
+  team: () => request<TeamData>('/org/members'),
+  invite: (email: string, role: Me['role']) => post<{ ok: true }>('/org/invitations', { email, role }),
+  revokeInvitation: (id: number) => request<void>(`/org/invitations/${id}`, { method: 'DELETE' }),
+  setRole: (id: number, role: Me['role']) => patch<{ ok: true }>(`/org/members/${id}`, { role }),
+  removeMember: (id: number) => request<void>(`/org/members/${id}`, { method: 'DELETE' }),
 
   listShops: () => request<Shop[]>('/shops'),
   createShop: (data: { name: string; domain: string; platform: string; niche: string }) => post<Shop>('/shops', data),

@@ -11,6 +11,8 @@
     "build": "npm run build -w server && npm run build -w web",
     "seed:demo": "npm run seed:demo -w server --",
     "assign-shops": "npm run assign-shops -w server --",
-    "test": "npm run test -w server"
+    "test": "npm run test -w server",
+    "rotate-secrets": "npm run rotate-secrets -w server",
+    "start": "npm run start -w server"
   }
 }

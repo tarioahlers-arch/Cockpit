@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { api } from '../api';
+import { ForgotPassword } from './PublicAuth';
 
 export default function Login({ onDone }: { onDone: () => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [form, setForm] = useState({ email: '', password: '', name: '', organization: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,6 +41,9 @@ export default function Login({ onDone }: { onDone: () => void }) {
         </button>
       </div>
       {error && <div className="error-banner">{error}</div>}
+      {mode === 'forgot' ? (
+        <ForgotPassword onBack={() => setMode('login')} />
+      ) : (
       <form onSubmit={submit}>
         {mode === 'register' && field('organization', 'Unternehmen', 'text', 'organization')}
         {mode === 'register' && field('name', 'Ihr Name', 'text', 'name')}
@@ -49,7 +53,15 @@ export default function Login({ onDone }: { onDone: () => void }) {
         <button className="btn" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
           {mode === 'login' ? 'Anmelden' : 'Konto erstellen'}
         </button>
+        {mode === 'login' && (
+          <p className="small" style={{ marginBottom: 0 }}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setError(null); setMode('forgot'); }}>
+              Passwort vergessen?
+            </a>
+          </p>
+        )}
       </form>
+      )}
       <p className="muted small" style={{ marginBottom: 0 }}>
         Jede Organisation sieht ausschließlich ihre eigenen Shops und Daten.
       </p>

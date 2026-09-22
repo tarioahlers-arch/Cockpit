@@ -5,6 +5,7 @@ import type { Server } from 'node:http';
 
 process.env.SHOPPULSE_DB = ':memory:';
 process.env.SHOPPULSE_LOGIN_MAX_ATTEMPTS = '1000';
+process.env.SHOPPULSE_MAIL_MODE = 'memory';
 const { createApp } = await import('../app.js');
 const { isPrivateAddress, guardedFetch, OutboundBlockedError } = await import('./outbound.js');
 
@@ -301,5 +302,16 @@ describe('Anmeldung', () => {
     const replay = new Client();
     replay.cookie = old;
     assert.equal((await replay.call('GET', '/api/shops')).status, 401);
+  });
+});
+
+describe('DNS-Rebinding-Schutz beim Verbindungsaufbau', () => {
+  test('Hostname, der auf eine interne Adresse auflöst, wird beim Verbinden blockiert', async () => {
+    const { pinnedFetch } = await import('./outbound.js');
+    // Kontrolle: ohne Schutz ist der lokale Server erreichbar ...
+    const port = (server.address() as AddressInfo).port;
+    assert.equal((await fetch(`http://localhost:${port}/api/health`)).status, 200);
+    // ... mit Schutz wird die Verbindung verweigert, obwohl die Vorab-Pruefung umgangen wird
+    await assert.rejects(pinnedFetch(`http://localhost:${port}/api/health`), (e: any) => /interner Adresse/.test(e.cause?.message ?? e.message));
   });
 });

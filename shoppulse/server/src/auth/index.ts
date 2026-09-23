@@ -92,7 +92,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
 /** Lesezugriff ("viewer") darf keine Daten veraendern. */
 /** Anfragen, die trotz POST nichts veraendern (Lesezugriff darf sie nutzen). */
-const READ_ONLY_POSTS = [/^\/api\/shops\/\d+\/advisor$/];
+const READ_ONLY_POSTS = [/^\/api\/shops\/\d+\/advisor$/, /^\/api\/shops\/\d+\/clicks\/heatmap-link$/];
 
 export function enforceReadOnly(req: Request, res: Response, next: NextFunction) {
   const readOnlyPost = req.method === 'POST' && READ_ONLY_POSTS.some((re) => re.test(req.originalUrl.split('?')[0]));
@@ -359,4 +359,6 @@ export function cleanupAuth() {
   db.prepare(`DELETE FROM password_resets WHERE expires_at <= datetime('now', '-1 day')`).run();
   db.prepare(`DELETE FROM invitations WHERE accepted_at IS NULL AND expires_at <= datetime('now', '-30 days')`).run();
   db.prepare('DELETE FROM auth_attempts WHERE reset_at <= ?').run(Date.now());
+  // Datensparsamkeit: Klick-Details nur 90 Tage aufbewahren
+  db.prepare(`DELETE FROM click_events WHERE ts < datetime('now', '-90 days')`).run();
 }

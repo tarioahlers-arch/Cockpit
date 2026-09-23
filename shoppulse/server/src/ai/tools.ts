@@ -9,6 +9,7 @@ import { getAvailability } from '../inventory/availability.js';
 import { getAutopilotSettings } from '../autopilot/engine.js';
 import { computeUplift } from '../autopilot/uplift.js';
 import { getBenchmarks, getNudgeEvidence, networkSize, sourceHash } from '../swarm/swarm.js';
+import { elementStats, frustrationSummary, pageStats } from '../analytics/clicks.js';
 
 /**
  * Werkzeuge des KI-Beraters. Alle sind reine Lesezugriffe und an den Shop gebunden, den der Server
@@ -63,6 +64,12 @@ export const ADVISOR_TOOLS: Anthropic.Beta.BetaTool[] = [
     name: 'get_inventory',
     description: 'Lagerbestände und Verfügbarkeit je Produkt (wie Kund:innen sie sehen) sowie Status der angebundenen Bestandsquellen.',
     input_schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'get_click_analysis',
+    description:
+      'Klick-Analyse und Frust-Signale: Anteil der Sessions mit Frust-Klicks (mehrfach schnell geklickt), Klicks ins Leere und hektischem Scrollen, Conversion frustrierter vs. übriger Sessions, Seiten mit den meisten Klicks und die Elemente, an denen Besucher:innen scheitern.',
+    input_schema: { type: 'object', properties: { days: DAYS }, required: ['days'], additionalProperties: false },
   },
   {
     name: 'get_benchmarks',
@@ -246,6 +253,14 @@ export function executeTool(shop: ShopRow, name: string, input: Record<string, u
       return {
         products: products.map((p, i) => ({ name: p.name, sku: p.sku, status: avail[i].status, label: avail[i].label, stores: avail[i].stores })),
         sources,
+      };
+    }
+    case 'get_click_analysis': {
+      const days = Math.min(90, Math.max(1, Math.round(Number(input.days) || 30)));
+      return {
+        summary: frustrationSummary(shop.id, days),
+        pages: pageStats(shop.id, days).slice(0, 15),
+        problemElements: elementStats(shop.id, days, undefined, undefined, 15),
       };
     }
     case 'get_benchmarks': {

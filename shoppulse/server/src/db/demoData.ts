@@ -178,6 +178,10 @@ export function createDemoShop(orgId: number): ShopRow {
       `INSERT INTO events (shop_id, visitor_id, session_id, type, page_type, sku, value, experiment_id, variant, ts)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
+    const insClick = db.prepare(
+      `INSERT INTO click_events (shop_id, visitor_id, session_id, page_key, page_path, page_type, kind, selector, label, ox, oy, px, py, device, ts)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
     const pickArchetype = (): (typeof ARCHETYPES)[number] => {
       let x = r();
       for (const a of ARCHETYPES) {
@@ -195,6 +199,7 @@ export function createDemoShop(orgId: number): ShopRow {
       let t = 1 + r() * 28 * DAY + DAY; // Startzeitpunkt vor bis zu 29 Tagen
       // Dauerhafte Kontrollgruppe: sieht nie Nudges (Grundlage des Uplift-Nachweises)
       const holdout = r() < DEMO_HOLDOUT;
+      const device = r() < 0.6 ? 'mobile' : r() < 0.25 ? 'tablet' : 'desktop';
       let groupSent = false;
       let variantSP: 'control' | 'treatment' | null = null;
       let variantAnchor: 'control' | 'treatment' | null = null;
@@ -202,6 +207,12 @@ export function createDemoShop(orgId: number): ShopRow {
 
       for (let s = 0; s < sessionCount; s++) {
         const sessionId = id();
+        // Klick mit Selektor passend zum DOM des Demo-Shops (fuer Heatmap-Ansicht auf der echten Seite)
+        const click = (kind: string, pageType: string, path: string, selector: string, label: string | null, py: number, sku: string | null = null) => {
+          const pageKey = path.replace(/\/demo-shop\/\d+/, '/demo-shop/:id');
+          insClick.run(shopId, visitorId, sessionId, pageKey, path, pageType, kind, selector, label, 0.2 + r() * 0.6, 0.2 + r() * 0.6, 0.1 + r() * 0.8, py + (r() - 0.5) * 0.04, device, tsAt(t));
+          if (kind !== 'click') insEvent.run(shopId, visitorId, sessionId, kind, pageType, sku, null, null, null, tsAt(t));
+        };
         const ev = (type: string, pageType: string | null, sku: string | null = null, value: number | null = null, exp: number | null = null, variant: string | null = null) => {
           insEvent.run(shopId, visitorId, sessionId, type, pageType, sku, value, exp, variant, tsAt(t));
           t -= 20_000 + r() * 60_000;
@@ -224,6 +235,23 @@ export function createDemoShop(orgId: number): ShopRow {
         for (let i = 0; i < views; i++) {
           const p = i === views - 1 ? product : PRODUCTS[Math.floor(r() * PRODUCTS.length)];
           ev('page_view', 'product', p.sku);
+          const productPath = `/demo-shop/${shopId}`;
+          // Produktbild ist nicht klickbar – viele erwarten eine Vergroesserung
+          if (r() < 0.06) {
+            click('click', 'product', productPath, '#product-image', 'Produktbild', 0.2, p.sku);
+            click('dead_click', 'product', productPath, '#product-image', 'Produktbild', 0.2, p.sku);
+          }
+          // "Groessentabelle" sieht aus wie ein Link, ist aber keiner
+          if (r() < (a.key === 'hesitant' ? 0.08 : 0.025)) {
+            click('click', 'product', productPath, '#size-guide', 'Größentabelle', 0.33, p.sku);
+            click('dead_click', 'product', productPath, '#size-guide', 'Größentabelle', 0.33, p.sku);
+          }
+          if (r() < 0.15) {
+            const other = PRODUCTS[Math.floor(r() * PRODUCTS.length)];
+            click('click', 'product', productPath, `a[data-sp-variant-sku="${other.sku}"]`, other.name, 0.62, p.sku);
+          }
+          if (a.key === 'price_sensitive' && r() < 0.5) click('click', 'product', productPath, '#sort', null, 0.08, p.sku);
+          if (a.key === 'explorer' && r() < 0.05) ev('scroll_thrash', 'product', p.sku);
           const sku = p.sku;
           // Experimente laufen auf Produktseiten; Zuweisung stabil je Besucher
           if (!holdout) {
@@ -247,11 +275,22 @@ export function createDemoShop(orgId: number): ShopRow {
 
         if (addsToCart) {
           ev('add_to_cart', 'product', product.sku);
+          click('click', 'product', `/demo-shop/${shopId}`, 'button[data-sp-add-to-cart]', 'In den Warenkorb', 0.42, product.sku);
+          let purchase = willBuy;
           if (willBuy || r() < 0.4) {
             ev('page_view', 'checkout');
             ev('checkout_start', 'checkout');
+            // Defekter "Gutschein einloesen"-Button: Frust-Klicks, ein Teil bricht danach ab
+            if (r() < 0.22) {
+              const checkoutPath = `/demo-shop/${shopId}/checkout`;
+              for (let k = 0; k < 3 + Math.floor(r() * 3); k++) click('click', 'checkout', checkoutPath, '#voucher-apply', 'Gutschein einlösen', 0.45);
+              if (r() < 0.6) {
+                click('rage_click', 'checkout', checkoutPath, '#voucher-apply', 'Gutschein einlösen', 0.45);
+                if (purchase && r() < 0.45) purchase = false;
+              }
+            }
           }
-          if (willBuy) {
+          if (purchase) {
             const value = Math.round(product.price * (1 + (r() < 0.3 ? 1 : 0)) * 100) / 100;
             ev('page_view', 'confirmation');
             ev('purchase', 'confirmation', null, value);

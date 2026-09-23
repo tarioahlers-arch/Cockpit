@@ -87,3 +87,29 @@ export function needsReencryption(value: string): boolean {
   if (!isEncrypted(value)) return true;
   return value.slice(PREFIX.length).split(':')[0] !== getKeys().current.id;
 }
+
+/** Zweckgebundener HMAC-Schluessel, abgeleitet vom aktuellen Schluessel (z. B. fuer kurzlebige Links). */
+function purposeKey(purpose: string): Buffer {
+  return crypto.createHmac('sha256', getKeys().current.key).update('shoppulse:' + purpose).digest();
+}
+
+/** Signiertes, zeitlich begrenztes Token: base64url(JSON).signatur */
+export function signToken(purpose: string, payload: Record<string, unknown>, ttlSeconds: number): string {
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + ttlSeconds })).toString('base64url');
+  const sig = crypto.createHmac('sha256', purposeKey(purpose)).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+export function verifyToken<T extends Record<string, unknown>>(purpose: string, token: string): T | null {
+  const [body, sig] = String(token ?? '').split('.');
+  if (!body || !sig) return null;
+  const expected = crypto.createHmac('sha256', purposeKey(purpose)).update(body).digest();
+  const given = Buffer.from(sig, 'base64url');
+  if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf-8')) as T & { exp: number };
+    return payload.exp > Date.now() / 1000 ? payload : null;
+  } catch {
+    return null;
+  }
+}

@@ -6,6 +6,8 @@ import { analyzeExperiment } from '../analytics/experiments.js';
 import type { NudgeType } from '../analytics/nudges.js';
 import { getAvailability, getSettings } from '../inventory/availability.js';
 import { pricingForShop } from '../routes/pricing.js';
+import { elementImpact, elementStats, frustrationSummary } from '../analytics/clicks.js';
+import type { FrustrationSignal } from '../analytics/insights.js';
 
 /**
  * Beratungs-Dashboard: KPIs, Segmente, priorisierte Empfehlungen, Tagesverlauf.
@@ -20,6 +22,7 @@ export function computeOverview(shop: ShopRow, days = 30) {
 
   const recommendations = buildRecommendations({
     inventory: inventorySignal(shop.id, events),
+    frustration: frustrationSignal(shop.id, days),
     productViewToUnitRate: productViewToUnitRate(events),
     funnel,
     segments,
@@ -128,4 +131,22 @@ function productViewToUnitRate(events: EventRow[]): number {
     else if (e.type === 'purchase_item') units += 1;
   }
   return views ? units / views : 0;
+}
+
+function frustrationSignal(shopId: number, days: number): FrustrationSignal {
+  const f = frustrationSummary(shopId, days);
+  return {
+    conversionFrustrated: f.conversionFrustrated,
+    conversionOthers: f.conversionOthers,
+    frustratedSessions: f.frustratedSessions,
+    sessions: f.sessions,
+    elements: elementStats(shopId, days, undefined, undefined, 10).map((e, i) => ({
+      ...e,
+      // Wirkungsvergleich nur fuer die wichtigsten Problem-Elemente (Aufwand begrenzen)
+      impact:
+        i < 4 && (e.rageSessions >= 5 || e.deadSessions >= 10)
+          ? elementImpact(shopId, days, e.pageKey, e.selector, e.rageSessions >= 5 ? 'rage_click' : 'dead_click')
+          : undefined,
+    })),
+  };
 }

@@ -4,7 +4,7 @@ import type { EventRow } from '../db/index.js';
  * Regelbasierte, erklaerbare Segmentierung der Besucher nach Entscheidungsmustern.
  * Jede Zuordnung liefert die ausloesenden Signale mit, damit das Dashboard das "Warum" zeigen kann.
  */
-export type SegmentKey = 'price_sensitive' | 'convenience' | 'hesitant' | 'explorer' | 'undetermined';
+export type SegmentKey = 'price_sensitive' | 'convenience' | 'hesitant' | 'explorer' | 'frustrated' | 'undetermined';
 
 export const SEGMENTS: Record<SegmentKey, { label: string; description: string; nudgeFit: string[] }> = {
   price_sensitive: {
@@ -27,6 +27,11 @@ export const SEGMENTS: Record<SegmentKey, { label: string; description: string; 
     description: 'Viele Seitenaufrufe und tiefes Scrollen – informiert sich ausführlich.',
     nudgeFit: ['social_proof'],
   },
+  frustrated: {
+    label: 'Frustriert',
+    description: 'Frust-Klicks, Klicks ins Leere oder hektisches Scrollen – hier hilft kein Nudge, sondern eine bessere Bedienbarkeit.',
+    nudgeFit: [],
+  },
   undetermined: {
     label: 'Noch unklar',
     description: 'Zu wenige Interaktionen für eine belastbare Zuordnung.',
@@ -48,6 +53,9 @@ export interface VisitorFeatures {
   checkouts: number;
   purchases: number;
   pageViewsBeforeFirstCart: number | null;
+  rageClicks: number;
+  deadClicks: number;
+  scrollThrash: number;
 }
 
 export function visitorFeatures(events: EventRow[]): Map<string, VisitorFeatures> {
@@ -72,6 +80,9 @@ export function visitorFeatures(events: EventRow[]): Map<string, VisitorFeatures
     let checkouts = 0;
     let purchases = 0;
     let pageViewsBeforeFirstCart: number | null = null;
+    let rageClicks = 0;
+    let deadClicks = 0;
+    let scrollThrash = 0;
 
     // Merkmale nur aus dem Verhalten VOR dem ersten Kauf – sonst wuerde das Ergebnis (Kauf)
     // in die Segmentzuordnung einfliessen und Conversion-Vergleiche zwischen Segmenten verzerren.
@@ -106,6 +117,15 @@ export function visitorFeatures(events: EventRow[]): Map<string, VisitorFeatures
         case 'checkout_start':
           checkouts += 1;
           break;
+        case 'rage_click':
+          rageClicks += 1;
+          break;
+        case 'dead_click':
+          deadClicks += 1;
+          break;
+        case 'scroll_thrash':
+          scrollThrash += 1;
+          break;
       }
     }
 
@@ -123,6 +143,9 @@ export function visitorFeatures(events: EventRow[]): Map<string, VisitorFeatures
       checkouts,
       purchases,
       pageViewsBeforeFirstCart,
+      rageClicks,
+      deadClicks,
+      scrollThrash,
     });
   }
   return result;
@@ -134,7 +157,7 @@ export interface SegmentAssignment {
 }
 
 export function classifyVisitor(f: VisitorFeatures): SegmentAssignment {
-  const interactions = f.pageViews + f.hesitations + f.addToCarts + f.priceFilterUses;
+  const interactions = f.pageViews + f.hesitations + f.addToCarts + f.priceFilterUses + f.rageClicks + f.deadClicks + f.scrollThrash;
   if (interactions < 2) return { segment: 'undetermined', signals: ['Weniger als 2 Interaktionen'] };
 
   // Punktesystem statt harter Entscheidungsbaeume: jedes Segment sammelt Evidenz.
@@ -143,6 +166,7 @@ export function classifyVisitor(f: VisitorFeatures): SegmentAssignment {
     convenience: { points: 0, signals: [] },
     hesitant: { points: 0, signals: [] },
     explorer: { points: 0, signals: [] },
+    frustrated: { points: 0, signals: [] },
   };
   const add = (k: keyof typeof scores, points: number, signal: string) => {
     scores[k].points += points;
@@ -160,6 +184,13 @@ export function classifyVisitor(f: VisitorFeatures): SegmentAssignment {
   if (f.hesitations >= 2) add('hesitant', 3, 'Mehrfaches Zögern vor dem Kauf-Button');
   else if (f.hesitations === 1 && f.addToCarts > 0) add('hesitant', 2, 'Zögern vor dem Warenkorb');
   if (f.sessions >= 2 && f.addToCarts > 0) add('hesitant', 1, 'Rückkehr zum Warenkorb in neuer Session');
+
+  // Frust-Signale wiegen schwer: Wer frustriert ist, braucht eine funktionierende Seite, keinen Nudge
+  if (f.rageClicks >= 1) add('frustrated', 4, 'Frust-Klicks (mehrfach schnell geklickt)');
+  if (f.deadClicks >= 3) add('frustrated', 3, 'Wiederholt ins Leere geklickt');
+  else if (f.deadClicks >= 1) add('frustrated', 1, 'Ins Leere geklickt');
+  if (f.scrollThrash >= 2) add('frustrated', 2, 'Hektisches Scrollen');
+  else if (f.scrollThrash === 1) add('frustrated', 1, 'Hektisches Scrollen');
 
   if (f.pageViews >= 6) add('explorer', 2, 'Viele Seitenaufrufe');
   if (f.maxScroll >= 75) add('explorer', 1, 'Tiefes Scrollen');

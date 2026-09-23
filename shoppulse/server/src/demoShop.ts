@@ -60,6 +60,9 @@ demoShopRouter.get('/:shopId/:step?', (req, res) => {
   if (req.params.step === 'checkout') {
     return res.send(
       layout(shop, 'checkout', '', `<div class="card"><h2>Kasse</h2><p>${esc(p.name)} – ${p.price.toFixed(2)} €</p>
+      <p><input id="voucher" placeholder="Gutscheincode" data-sp-private style="padding:8px;border:1px solid #ccc;border-radius:6px">
+      <button id="voucher-apply" style="background:#555">Gutschein einlösen</button>
+      <span style="font-size:12px;color:#999">(Demo: reagiert absichtlich nicht)</span></p>
       <a class="btn" href="${base}/confirmation">Zahlungspflichtig bestellen</a></div>`),
     );
   }
@@ -83,9 +86,11 @@ demoShopRouter.get('/:shopId/:step?', (req, res) => {
       'product',
       `data-sp-sku="${esc(p.sku)}" data-sp-price="${p.price}" data-sp-reference-price="${reference}" data-sp-stock="${p.stock ?? ''}"`,
       `<div class="card">
-        <label>Sortieren: <select data-sp-price-filter><option>Relevanz</option><option>Preis aufsteigend</option></select></label>
+        <label>Sortieren: <select id="sort" data-sp-price-filter><option>Relevanz</option><option>Preis aufsteigend</option></select></label>
+        <div id="product-image" style="height:220px;margin:14px 0;border-radius:10px;background:linear-gradient(135deg,#dfe7f5,#b9c7e6);display:flex;align-items:center;justify-content:center;color:#5a6b8c">Produktbild</div>
         <h1>${esc(p.name)}</h1>
-        <div class="price">${p.price.toFixed(2).replace('.', ',')} €</div>
+        <div class="price" id="price">${p.price.toFixed(2).replace('.', ',')} €</div>
+        <p><span id="size-guide" style="color:#1f5eff;text-decoration:underline">Größentabelle</span> · Versand in 1–2 Tagen</p>
         <p style="color:#777;font-size:13px">Niedrigster Preis der letzten 30 Tage: ${reference.toFixed(2).replace('.', ',')} € (Demo-Referenzpreis)</p>
         <div data-sp-availability style="margin:10px 0"></div>
         <div data-sp-nudge-slot></div>

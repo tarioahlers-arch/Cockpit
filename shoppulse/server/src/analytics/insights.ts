@@ -44,6 +44,22 @@ export interface InventorySignal {
   problemSources: { name: string; problem: string }[];
 }
 
+export interface FrustrationSignal {
+  conversionFrustrated: number;
+  conversionOthers: number;
+  frustratedSessions: number;
+  sessions: number;
+  elements: {
+    selector: string;
+    label: string | null;
+    pageKey: string;
+    rageSessions: number;
+    deadSessions: number;
+    /** Kaufquote betroffener Sessions vs. Sessions auf derselben Seite ohne das Signal */
+    impact?: { affectedConversion: number; baselineConversion: number; baselineSessions: number };
+  }[];
+}
+
 const fmtPct = (v: number) => `${Math.round(v * 100)} %`;
 const eur = (v: number) => Math.round(v);
 const fmtNum = (v: number) => v.toLocaleString('de-DE');
@@ -60,6 +76,7 @@ export function buildRecommendations(input: {
   inventory?: InventorySignal;
   /** verkaufte Stueck je Produktseitenaufruf (shopweit), fuer Artikel ohne eigene Verkaufshistorie */
   productViewToUnitRate?: number;
+  frustration?: FrustrationSignal;
 }): Recommendation[] {
   const { funnel, segments, pricing, experiments, inventory } = input;
   const runningExperiments = experiments.filter((e) => e.status === 'running').length;
@@ -256,6 +273,53 @@ export function buildRecommendations(input: {
       effort: 'mittel',
       quickWin: false,
     });
+  }
+
+  // Frust-Signale: konkrete Elemente, an denen Besucher:innen scheitern
+  const fr = input.frustration;
+  if (fr && fr.frustratedSessions >= 20) {
+    const gap = Math.max(0, fr.conversionOthers - fr.conversionFrustrated);
+    const name = (e: { label: string | null; selector: string }) => (e.label ? `„${e.label}“` : `\`${e.selector.slice(0, 60)}\``);
+    const crText = `Sessions mit Frust-Signalen kaufen zu ${fmtPct(fr.conversionFrustrated)}, alle übrigen zu ${fmtPct(fr.conversionOthers)}.`;
+    // Elementgenaue Luecke (betroffen vs. gleiche Seite ohne Signal), sonst die allgemeine
+    const elementGap = (e: FrustrationSignal['elements'][number]) =>
+      e.impact && e.impact.baselineSessions >= 30 ? Math.max(0, e.impact.baselineConversion - e.impact.affectedConversion) : gap;
+    const elementText = (e: FrustrationSignal['elements'][number]) =>
+      e.impact && e.impact.baselineSessions >= 30
+        ? `Betroffene Sessions kaufen zu ${fmtPct(e.impact.affectedConversion)}, Sessions auf derselben Seite ohne dieses Problem zu ${fmtPct(e.impact.baselineConversion)}.`
+        : crText;
+    for (const e of fr.elements.filter((x) => x.rageSessions >= 5).slice(0, 2)) {
+      recs.push({
+        id: `rage-${e.pageKey}-${e.selector}`,
+        title: `Frust-Klicks auf ${name(e)} beheben (${e.pageKey})`,
+        why: `${e.rageSessions} Sessions haben mehrfach schnell hintereinander auf dieses Element geklickt – es reagiert vermutlich nicht, zu langsam oder ohne sichtbare Rückmeldung. ${elementText(e)}`,
+        action:
+          'Element im Tab „Klick-Analyse“ per Heatmap auf der Seite ansehen und prüfen: Funktioniert es auf allen Geräten? Gibt es eine sofortige Rückmeldung (Ladeindikator, Fehlermeldung)?',
+        nudgeType: null,
+        potentialPerMonth: eur(e.rageSessions * scale * elementGap(e) * funnel.averageOrderValue * 0.5),
+        assumption:
+          'Die Hälfte der Kauflücke betroffener Sessions (gegenüber derselben Seite ohne Problem) wird nach der Behebung geschlossen. Zusammenhang, kein Beweis – Wirkung nach der Behebung im Vorher-nachher-Vergleich prüfen.',
+        confidence: 'mittel',
+        effort: 'gering',
+        quickWin: true,
+      });
+    }
+    const deadEl = fr.elements.filter((x) => x.deadSessions >= 10 && x.rageSessions < 5)[0];
+    if (deadEl) {
+      recs.push({
+        id: `dead-${deadEl.pageKey}-${deadEl.selector}`,
+        title: `${name(deadEl)} wird oft angeklickt, ist aber nicht klickbar (${deadEl.pageKey})`,
+        why: `${deadEl.deadSessions} Sessions haben auf dieses Element geklickt, ohne dass etwas passiert. Besucher:innen erwarten hier eine Funktion (z. B. Bildvergrößerung, Details, Link). ${elementText(deadEl)}`,
+        action: 'Die erwartete Funktion anbieten (z. B. Zoom, Größentabelle, Link) – oder das Element so gestalten, dass es nicht mehr klickbar wirkt.',
+        nudgeType: null,
+        potentialPerMonth: eur(deadEl.deadSessions * scale * elementGap(deadEl) * funnel.averageOrderValue * 0.2),
+        assumption:
+          '20 % der Kauflücke betroffener Sessions werden nach der Anpassung geschlossen. Zusammenhang, kein Beweis: Wer viel stöbert, klickt öfter und kauft ohnehin seltener – Wirkung per A/B-Test prüfen.',
+        confidence: 'niedrig',
+        effort: 'gering',
+        quickWin: true,
+      });
+    }
   }
 
   // Validierte Gewinner ausrollen – die belastbarste Empfehlung ueberhaupt

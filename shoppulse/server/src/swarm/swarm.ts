@@ -335,7 +335,7 @@ export function getBenchmarks(shop: ShopRow) {
 export function getNudgeEvidence(shop: ShopRow) {
   if (!sourceHash(shop)) return null;
   const nudges = ['social_proof', 'scarcity', 'anchoring'];
-  const segments = ['all', ...Object.keys(SEGMENTS).filter((k) => k !== 'undetermined')];
+  const segments = ['all', ...Object.keys(SEGMENTS).filter((k) => k !== 'undetermined' && k !== 'frustrated')];
   return nudges.map((n) => ({
     nudgeType: n,
     cells: segments.map((seg) => {

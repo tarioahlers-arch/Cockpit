@@ -19,6 +19,10 @@
  *   [data-sp-variant-sku]    Varianten-/Paketoption (fuer Decoy-Tests)
  *   [data-sp-availability]   Verfuegbarkeitsanzeige (Wert = SKU, leer = SKU der Seite)
  *   [data-sp-availability-sku="SKU"]  Verfuegbarkeit z. B. in Kategorie-Listings
+ *   [data-sp-private]        Bereich wird von der Klick-Analyse ignoriert (z. B. Kundenkonto)
+ *
+ * Klick-Analyse: Klicks (max. 60 je Seite), Frust-Klicks, Klicks ins Leere und hektisches Scrollen –
+ * ohne Texteingaben/Formularwerte. Heatmap-Ansicht: Seite mit ?sp_heatmap=<Token aus dem Dashboard>.
  */
 (function () {
   'use strict';
@@ -86,7 +90,7 @@
     if (!consent) return;
     var p = props || {};
     var page = pageData();
-    queue.push({
+    var ev = {
       type: type,
       pageType: p.pageType || page.pageType,
       sku: p.sku !== undefined ? p.sku : page.sku,
@@ -94,7 +98,9 @@
       skus: p.skus,
       experimentId: p.experimentId,
       variant: p.variant,
-    });
+    };
+    if (p.click) for (var k in p.click) ev[k] = p.click[k];
+    queue.push(ev);
     if (queue.length >= 10 || type === 'purchase' || type === 'add_to_cart') flush();
   }
 
@@ -115,10 +121,27 @@
   function watchScroll() {
     var maxDepth = 0;
     var reported = 0;
+    // Hektisches Scrollen: >= 4 Richtungswechsel (je >= 150 px) innerhalb von 2,5 s
+    var lastY = window.scrollY, dir = 0, anchorY = window.scrollY, flips = [], thrashLock = 0;
     window.addEventListener('scroll', function () {
       var h = document.documentElement;
       var depth = Math.min(100, Math.round(((window.scrollY + window.innerHeight) / h.scrollHeight) * 100));
       if (depth > maxDepth) maxDepth = depth;
+      var y = window.scrollY;
+      var d = y > lastY ? 1 : y < lastY ? -1 : 0;
+      if (d && d !== dir) {
+        if (dir && Math.abs(lastY - anchorY) >= 150) flips.push(Date.now());
+        dir = d;
+        anchorY = lastY;
+      }
+      lastY = y;
+      var now = Date.now();
+      flips = flips.filter(function (t) { return now - t < 2500; });
+      if (flips.length >= 4 && now > thrashLock) {
+        track('scroll_thrash');
+        thrashLock = now + 10000;
+        flips = [];
+      }
     }, { passive: true });
     function report() {
       if (maxDepth > reported) {
@@ -337,10 +360,279 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadAvailability);
   else loadAvailability();
 
+  // --- Klick-Analyse & Frust-Signale ---------------------------------------
+  // Datenschutz: keine Texteingaben/Formularwerte; Bereiche mit [data-sp-private] werden ignoriert;
+  // Beschriftungen nur fuer klickbare Elemente/Bilder, gekuerzt und ohne E-Mail-Adressen/Nummern.
+
+  var INTERACTIVE = 'a[href],button,input,select,textarea,label,summary,[role=button],[role=link],[role=tab],' +
+    '[role=checkbox],[role=menuitem],[onclick],[data-sp-add-to-cart],[tabindex]:not([tabindex="-1"])';
+  var STABLE_ATTRS = ['data-sp-variant-sku', 'data-sp-add-to-cart', 'data-testid', 'name', 'aria-label'];
+  var MAX_CLICKS_PER_PAGE = 60;
+  var clickCount = 0;
+  var overlayActive = false;
+
+  function deviceClass() {
+    var w = window.innerWidth;
+    return w < 768 ? 'mobile' : w < 1100 ? 'tablet' : 'desktop';
+  }
+
+  function esc(v) {
+    return window.CSS && CSS.escape ? CSS.escape(v) : String(v).replace(/[^\w-]/g, '\\$&');
+  }
+
+  /** Moeglichst stabiler CSS-Selektor (IDs, data-Attribute, sonst Tag/Klassen/Position, max. 5 Ebenen). */
+  function selectorFor(el) {
+    var parts = [];
+    var node = el;
+    for (var depth = 0; node && node.nodeType === 1 && depth < 5; depth++) {
+      if (node === document.body || node === document.documentElement) break;
+      if (node.id && !/\d{3,}/.test(node.id)) {
+        parts.unshift('#' + esc(node.id));
+        break;
+      }
+      var tag = node.tagName.toLowerCase();
+      var stable = null;
+      for (var i = 0; i < STABLE_ATTRS.length && !stable; i++) {
+        var v = node.getAttribute(STABLE_ATTRS[i]);
+        if (v !== null && v.length <= 60) stable = tag + '[' + STABLE_ATTRS[i] + (v ? '="' + v.replace(/"/g, '\\"') + '"' : '') + ']';
+      }
+      if (stable) {
+        parts.unshift(stable);
+        break;
+      }
+      var cls = (node.getAttribute('class') || '').split(/\s+/).filter(function (c) {
+        return c && c.length < 30 && !/\d{3,}/.test(c) && c.indexOf('sp-') !== 0;
+      }).slice(0, 2);
+      var part = tag + cls.map(function (c) { return '.' + esc(c); }).join('');
+      var parent = node.parentElement;
+      if (parent) {
+        var same = Array.prototype.filter.call(parent.children, function (c) { return c.tagName === node.tagName; });
+        if (same.length > 1) part += ':nth-of-type(' + (same.indexOf(node) + 1) + ')';
+      }
+      parts.unshift(part);
+      node = parent;
+    }
+    return parts.join(' > ').slice(0, 200) || el.tagName.toLowerCase();
+  }
+
+  function labelFor(el, interactive) {
+    if (el.closest('input,textarea,select,[contenteditable],[data-sp-private]')) return null;
+    var t = el.getAttribute('aria-label') || el.getAttribute('alt') || el.getAttribute('title') || '';
+    if (!t && (interactive || el.children.length === 0)) t = el.innerText || el.textContent || '';
+    t = String(t).replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!t || /@/.test(t) || /\d{5,}/.test(t)) return null;
+    return t;
+  }
+
+  function watchClicks() {
+    var recent = [];
+    var rageLock = 0;
+    var mutated = false;
+    if (window.MutationObserver) {
+      new MutationObserver(function () { mutated = true; }).observe(document.documentElement, {
+        subtree: true, childList: true, attributes: true, characterData: true,
+      });
+    }
+    document.addEventListener('click', function (ev) {
+      var target = ev.target;
+      if (!target || target.nodeType !== 1 || target.closest('[data-sp-private]')) return;
+      var interactive = target.closest(INTERACTIVE);
+      var el = interactive || target;
+      var rect = el.getBoundingClientRect();
+      var doc = document.documentElement;
+      var info = {
+        selector: selectorFor(el),
+        label: labelFor(el, !!interactive),
+        ox: rect.width ? (ev.clientX - rect.left) / rect.width : 0.5,
+        oy: rect.height ? (ev.clientY - rect.top) / rect.height : 0.5,
+        px: (ev.clientX + window.scrollX) / Math.max(doc.scrollWidth, 1),
+        py: (ev.clientY + window.scrollY) / Math.max(doc.scrollHeight, 1),
+        device: deviceClass(),
+        path: location.pathname,
+      };
+      if (clickCount < MAX_CLICKS_PER_PAGE) {
+        clickCount++;
+        track('click', { click: info });
+      }
+      // Frust-Klicks: >= 3 Klicks innerhalb 1 s im Umkreis von 30 px
+      var now = Date.now();
+      recent = recent.filter(function (c) { return now - c.t < 1000; });
+      recent.push({ t: now, x: ev.clientX, y: ev.clientY });
+      var near = recent.filter(function (c) { return Math.abs(c.x - ev.clientX) < 30 && Math.abs(c.y - ev.clientY) < 30; });
+      if (near.length >= 3 && now > rageLock) {
+        track('rage_click', { click: info });
+        rageLock = now + 1500;
+        recent = [];
+      }
+      // Klick ins Leere: nicht klickbares Element, danach 1 s lang keine Reaktion der Seite
+      if (!interactive && window.getComputedStyle(target).cursor !== 'pointer') {
+        mutated = false;
+        var href = location.href;
+        setTimeout(function () {
+          if (!mutated && location.href === href) track('dead_click', { click: info });
+        }, 1000);
+      }
+    }, true);
+  }
+
+  // --- Heatmap-Ansicht direkt auf der Shopseite (nur ueber signierten Link aus dem Dashboard) --------
+
+  function heatmapToken() {
+    var m = location.search.match(/[?&]sp_heatmap=([^&#]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  function heatColor(a) {
+    // 0 -> blau, 0.5 -> gelb, 1 -> rot
+    var r = Math.round(255 * Math.min(1, a * 2));
+    var g = Math.round(255 * (a < 0.5 ? a * 2 : 2 - a * 2));
+    var b = Math.round(255 * Math.max(0, 1 - a * 3));
+    return [r, g, b];
+  }
+
+  function renderHeatmap(data, onlyFrust) {
+    Array.prototype.forEach.call(document.querySelectorAll('.sp-heatmap-ui'), function (n) { n.remove(); });
+    var doc = document.documentElement;
+    var W = Math.max(doc.scrollWidth, window.innerWidth);
+    var H = Math.max(doc.scrollHeight, window.innerHeight);
+    // Dichteraster (4 px je Zelle) mit Gauss-Kern; logarithmische Farbskala, damit sowohl
+    // Schwerpunkte als auch seltene Klickstellen sichtbar bleiben
+    var CELL = 4, RADIUS = 6; // 6 Zellen = 24 px
+    var gw = Math.ceil(W / CELL), gh = Math.ceil(H / CELL);
+    var grid = new Float32Array(gw * gh);
+    var kernel = [];
+    for (var ky = -RADIUS; ky <= RADIUS; ky++) {
+      for (var kx = -RADIUS; kx <= RADIUS; kx++) {
+        var dist2 = kx * kx + ky * ky;
+        if (dist2 <= RADIUS * RADIUS) kernel.push([kx, ky, Math.exp(-dist2 / (2 * (RADIUS / 2) * (RADIUS / 2)))]);
+      }
+    }
+    var cache = {};
+    var find = function (sel) {
+      if (!(sel in cache)) {
+        try { cache[sel] = document.querySelector(sel); } catch (e) { cache[sel] = null; }
+      }
+      return cache[sel];
+    };
+    var pts = (data.points || []).filter(function (p) { return !onlyFrust || p.k !== 'click'; });
+    pts.forEach(function (p) {
+      var el = find(p.s);
+      var r = el && el.getBoundingClientRect();
+      var x, y;
+      if (r && r.width && r.height && p.ox != null) {
+        x = r.left + window.scrollX + p.ox * r.width;
+        y = r.top + window.scrollY + p.oy * r.height;
+      } else {
+        x = (p.px || 0) * W;
+        y = (p.py || 0) * H;
+      }
+      var cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
+      for (var i = 0; i < kernel.length; i++) {
+        var gx = cx + kernel[i][0], gy = cy + kernel[i][1];
+        if (gx >= 0 && gy >= 0 && gx < gw && gy < gh) grid[gy * gw + gx] += kernel[i][2];
+      }
+    });
+    var max = 0;
+    for (var m = 0; m < grid.length; m++) if (grid[m] > max) max = grid[m];
+    var canvas = document.createElement('canvas');
+    canvas.className = 'sp-heatmap-ui';
+    canvas.width = gw;
+    canvas.height = gh;
+    canvas.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;z-index:2147483645;opacity:0.7;image-rendering:auto;' +
+      'width:' + gw * CELL + 'px;height:' + gh * CELL + 'px';
+    var ctx = canvas.getContext('2d');
+    var img = ctx.createImageData(gw, gh);
+    var logMax = Math.log(1 + (max || 1));
+    for (var q = 0; q < grid.length; q++) {
+      var v = grid[q];
+      if (v < 0.05) continue;
+      var a = Math.log(1 + v) / logMax;
+      var c = heatColor(a);
+      img.data[q * 4] = c[0];
+      img.data[q * 4 + 1] = c[1];
+      img.data[q * 4 + 2] = c[2];
+      img.data[q * 4 + 3] = Math.round(70 + 185 * a);
+    }
+    ctx.putImageData(img, 0, 0);
+    document.body.appendChild(canvas);
+
+    // Problem-Elemente markieren
+    (data.elements || []).forEach(function (e) {
+      if (!e.rage && !e.dead) return;
+      var el = find(e.selector);
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      var box = document.createElement('div');
+      box.className = 'sp-heatmap-ui';
+      box.style.cssText = 'position:absolute;pointer-events:none;z-index:2147483646;border-radius:4px;box-sizing:border-box;' +
+        'left:' + (r.left + window.scrollX - 3) + 'px;top:' + (r.top + window.scrollY - 3) + 'px;width:' + (r.width + 6) + 'px;height:' + (r.height + 6) + 'px;' +
+        (e.rage ? 'border:3px solid #d62d45;' : 'border:3px dashed #e08a00;');
+      var tag = document.createElement('div');
+      tag.textContent = (e.rage ? e.rage + '× Frust-Klick' : '') + (e.rage && e.dead ? ' · ' : '') + (e.dead ? e.dead + '× ins Leere' : '');
+      tag.style.cssText = 'position:absolute;left:-3px;top:-24px;white-space:nowrap;font:600 12px system-ui,sans-serif;color:#fff;padding:2px 6px;border-radius:4px;background:' + (e.rage ? '#d62d45' : '#b36a00');
+      box.appendChild(tag);
+      document.body.appendChild(box);
+    });
+
+    var panel = document.createElement('div');
+    panel.className = 'sp-heatmap-ui';
+    panel.style.cssText = 'position:fixed;right:16px;top:16px;z-index:2147483647;background:#111827;color:#f3f4f6;padding:12px 14px;border-radius:10px;' +
+      'font:13px/1.45 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:300px';
+    var title = document.createElement('strong');
+    title.textContent = 'ShopPulse Heatmap';
+    panel.appendChild(title);
+    var meta = document.createElement('div');
+    meta.textContent = data.pageKey + ' · ' + (data.device || 'alle Geräte') + ' · ' + pts.length + ' Klicks · letzte ' + data.days + ' Tage';
+    meta.style.cssText = 'color:#9ca3af;margin:2px 0 8px';
+    panel.appendChild(meta);
+    var legend = document.createElement('div');
+    legend.innerHTML = '<span style="display:inline-block;width:80px;height:8px;border-radius:4px;background:linear-gradient(90deg,#3050ff,#ffe000,#ff2000);vertical-align:middle"></span> wenige → viele Klicks<br>' +
+      '<span style="color:#ff6b7f">■</span> Frust-Klicks &nbsp; <span style="color:#ffb44d">■</span> Klicks ins Leere';
+    panel.appendChild(legend);
+    var btns = document.createElement('div');
+    btns.style.cssText = 'margin-top:8px;display:flex;gap:6px';
+    var mk = function (text, fn) {
+      var b = document.createElement('button');
+      b.textContent = text;
+      b.style.cssText = 'border:0;border-radius:6px;padding:4px 8px;cursor:pointer;font:600 12px system-ui;background:#374151;color:#fff';
+      b.onclick = fn;
+      btns.appendChild(b);
+    };
+    mk(onlyFrust ? 'Alle Klicks' : 'Nur Frust-Signale', function () { renderHeatmap(data, !onlyFrust); });
+    mk('Schließen', function () { Array.prototype.forEach.call(document.querySelectorAll('.sp-heatmap-ui'), function (n) { n.remove(); }); });
+    panel.appendChild(btns);
+    document.body.appendChild(panel);
+  }
+
+  function startHeatmapMode(token) {
+    overlayActive = true; // Betreiberansicht: kein Tracking
+    var run = function () {
+      fetch(ENDPOINT + '/api/public/heatmap?key=' + encodeURIComponent(KEY) + '&token=' + encodeURIComponent(token))
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (data) {
+          renderHeatmap(data, false);
+          var t;
+          window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(function () { renderHeatmap(data, false); }, 300); });
+        })
+        .catch(function () {
+          var n = document.createElement('div');
+          n.className = 'sp-heatmap-ui';
+          n.textContent = 'ShopPulse: Heatmap-Link ungültig oder abgelaufen – bitte im Dashboard neu öffnen.';
+          n.style.cssText = 'position:fixed;right:16px;top:16px;z-index:2147483647;background:#7f1d1d;color:#fff;padding:10px 14px;border-radius:8px;font:13px system-ui';
+          document.body.appendChild(n);
+        });
+    };
+    if (document.readyState === 'complete') setTimeout(run, 300);
+    else window.addEventListener('load', function () { setTimeout(run, 300); });
+  }
+
+  var hmToken = heatmapToken();
+  if (hmToken && KEY) startHeatmapMode(hmToken);
+
   // --- Start --------------------------------------------------------------
 
   function start() {
-    if (started || !consent || !KEY) return;
+    if (started || !consent || !KEY || overlayActive) return;
     started = true;
     ids();
     var page = pageData();
@@ -351,6 +643,7 @@
     }
     watchScroll();
     watchButtons();
+    watchClicks();
     loadExperiments();
     setInterval(function () { flush(); }, 5000);
   }

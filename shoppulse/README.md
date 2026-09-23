@@ -23,6 +23,43 @@ begründet, *warum* sie wirkt.
 
 | **H) Schwarmwissen & Segment-Targeting** | Anonymisiertes Lernen über alle teilnehmenden Shops einer Branche. Tests kommen mit Vorwissen früher zum Ergebnis, dazu gibt es Branchen-Benchmarks. Nudges werden nur den Verhaltenssegmenten ausgespielt, bei denen sie wirken. |
 
+| **I) Klick-Analyse & Frust-Signale** | Klicks, Frust-Klicks, Klicks ins Leere und hektisches Scrollen. Dazu eine Rangliste der Problem-Elemente mit Umsatzwirkung, Klicktiefe je Seite und eine **Heatmap direkt auf der echten Shopseite**. Die Frust-Signale bilden das Segment „Frustriert“. |
+
+### Klick-Analyse & Frust-Signale
+
+**Was das Snippet misst** (nach Einwilligung):
+
+| Signal | Erkennung | Bedeutung |
+|---|---|---|
+| Klick | jeder Klick (max. 60 je Seitenaufruf) | Heatmap, meistgeklickte Elemente, Klicktiefe |
+| Frust-Klick | ≥ 3 Klicks innerhalb 1 s im Umkreis von 30 px | Element reagiert nicht, zu langsam oder ohne Rückmeldung |
+| Klick ins Leere | Klick auf nicht klickbares Element, danach 1 s lang keine Reaktion der Seite | Element wirkt klickbar (Bild, Text), hat aber keine Funktion |
+| Hektisches Scrollen | ≥ 4 Richtungswechsel (je ≥ 150 px) innerhalb 2,5 s | Orientierungslosigkeit |
+
+**Wie ein Klick gespeichert wird**
+- **Element:** Jeder Klick wird einem möglichst stabilen CSS-Selektor zugeordnet (IDs, `data-`-Attribute, sonst Tag, Klassen und Position).
+- **Position:** Sie wird **relativ zum Element** gespeichert. Die Heatmap passt deshalb auch nach Layout-Änderungen und auf anderen Bildschirmgrößen.
+- **Seitenschlüssel:** Pfade werden normalisiert, aus `/bestellung/12345` wird `/bestellung/:id`.
+
+**Datenschutz**
+- Keine Texteingaben und keine Formularwerte.
+- Beschriftungen gibt es nur für klickbare Elemente und Bilder, gekürzt und ohne E-Mail-Adressen oder lange Nummern.
+- Bereiche mit `data-sp-private` werden komplett ignoriert.
+- Klickdetails werden nach 90 Tagen gelöscht.
+
+**Frust-Session und Segment „Frustriert“**
+- Als frustriert zählt eine Session ab einem Frust-Klick, ab 2 Klicks ins Leere oder bei hektischem Scrollen.
+- Das Segment „Frustriert“ erscheint in Segmenten, Targeting und KI-Berater.
+- Für frustrierte Besucher:innen empfiehlt ShopPulse keine Nudges, sondern die Behebung der Ursache.
+
+**Empfehlungen:** Problem-Elemente erscheinen als priorisierte Empfehlung. Verglichen wird die Kaufquote der betroffenen Sessions mit Sessions auf derselben Seite ohne das Problem. Das Potenzial ist ausdrücklich ein Zusammenhang, kein Beweis. Die Wirkung einer Behebung sollte im Vorher-nachher-Vergleich oder per A/B-Test geprüft werden.
+
+**Heatmap auf der Seite**
+- Das Dashboard erzeugt einen **signierten, 15 Minuten gültigen Link** für genau diesen Shop und diese Seite, auch mit Lesezugriff.
+- Das Snippet legt dann eine Dichte-Heatmap (logarithmische Farbskala) über die echte Seite und markiert Problem-Elemente.
+- In dieser Ansicht wird nichts getrackt.
+- Ohne gültiges Token liefert der öffentliche Endpunkt `GET /api/public/heatmap` keine Daten.
+
 ### Schwarmwissen
 
 **Teilnahme**
@@ -395,6 +432,13 @@ zugewiesener Variante erscheint über dem Button z. B. „11× in den letzten 48
 **Schwarmwissen in der Demo**
 - Der Demo-Shop nimmt an einem **simulierten** Netzwerk teil: Mode 24 Shops, Elektronik 8 Shops, B2B 3 Shops (bleibt unter der Mindestanzahl, bewusst).
 - **Beim Autopilot-Lauf:** Der Social-Proof-Rollout nimmt preissensible Besucher:innen aus. Der Scarcity-Test lässt stöbernde Besucher:innen weg, weil Scarcity ihnen im Netzwerk geschadet hat.
+
+**Klick-Analyse in der Demo.** Der Test-Shop enthält typische Problemstellen:
+- ein nicht klickbares Produktbild
+- eine „Größentabelle“, die wie ein Link aussieht
+- einen absichtlich defekten „Gutschein einlösen“-Button im Checkout
+
+Im Tab „Klick-Analyse“ öffnet „Auf der Seite zeigen ↗“ die Heatmap direkt im Test-Shop.
 
 Die Demo-Lagerintegration besteht aus zwei „Tools“:
 - **ERP-Export als CSV-Feed:** Der Demo-Server stellt ihn selbst bereit, der Scheduler ruft ihn echt per HTTP ab.

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_shop_ts ON events(shop_id, ts);
 CREATE INDEX IF NOT EXISTS idx_events_shop_visitor ON events(shop_id, visitor_id);
+CREATE INDEX IF NOT EXISTS idx_events_shop_session ON events(shop_id, session_id);
 
 CREATE TABLE IF NOT EXISTS experiments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -297,3 +298,29 @@ CREATE TABLE IF NOT EXISTS swarm_benchmarks (
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (source_hash, month)
 );
+
+-- ---------------------------------------------------------------------------
+-- Klick-Analyse & Frust-Signale
+-- Positionen relativ zum angeklickten Element (ox/oy) – so laesst sich die Heatmap auf der echten
+-- Seite ueber das Element legen, auch wenn sich Layout oder Bildschirmgroesse aendern. px/py
+-- (Anteil an Seitenbreite/-hoehe) dienen als Rueckfall und fuer die Klicktiefe.
+-- Keine Texteingaben, keine Formularwerte.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS click_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shop_id INTEGER NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  visitor_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  page_key TEXT NOT NULL,            -- normalisierter Pfad, z. B. /produkt/:id
+  page_path TEXT,                    -- zuletzt gesehener echter Pfad (fuer den Heatmap-Link)
+  page_type TEXT,
+  kind TEXT NOT NULL,                -- click | rage_click | dead_click
+  selector TEXT NOT NULL,
+  label TEXT,
+  ox REAL, oy REAL,
+  px REAL, py REAL,
+  device TEXT NOT NULL,              -- mobile | tablet | desktop
+  ts TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_click_events_page ON click_events(shop_id, page_key, ts);
+CREATE INDEX IF NOT EXISTS idx_click_events_shop_ts ON click_events(shop_id, ts);

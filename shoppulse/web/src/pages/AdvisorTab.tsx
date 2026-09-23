@@ -8,6 +8,7 @@ const SUGGESTIONS = [
   'Warum hat sich die Conversion in den letzten 7 Tagen verändert?',
   'Was hat der Autopilot bisher gebracht?',
   'Wo stehe ich im Vergleich zu anderen Shops meiner Branche?',
+  'Wo scheitern Besucher:innen auf meiner Seite?',
   'Welche Produkte sollte ich nachbestellen oder im Preis anpassen?',
 ];
 
@@ -21,6 +22,7 @@ const TOOL_LABEL: Record<string, string> = {
   get_inventory: 'Lager',
   get_autopilot: 'Autopilot',
   get_benchmarks: 'Schwarmwissen',
+  get_click_analysis: 'Klick-Analyse',
 };
 
 /** Minimale, sichere Darstellung (kein HTML): Absaetze, Aufzaehlungen, **fett**. */

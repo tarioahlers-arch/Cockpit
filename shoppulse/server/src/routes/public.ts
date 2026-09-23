@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { db, type ExperimentRow, type ShopRow } from '../db/index.js';
 import { getAvailability } from '../inventory/availability.js';
 import { classifyVisitor, visitorFeatures } from '../analytics/segmentation.js';
+import { elementStats, heatmapPoints } from '../analytics/clicks.js';
+import { verifyToken } from '../security/secrets.js';
 import type { EventRow } from '../db/index.js';
 
 /**
@@ -20,7 +22,26 @@ const EVENT_TYPES = new Set([
   'price_filter',
   'exposure',
   'group', // Zuordnung zur Kontrollgruppe (holdout) bzw. zu Besucher:innen mit Nudges (exposed)
+  // Klick-Analyse: Details in click_events; Frust-Signale zusaetzlich als Ereignis (Segmente, Funnel)
+  'click',
+  'rage_click',
+  'dead_click',
+  'scroll_thrash',
 ]);
+const CLICK_KINDS = new Set(['click', 'rage_click', 'dead_click']);
+const DEVICES = new Set(['mobile', 'tablet', 'desktop']);
+const unit = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : null);
+/** Pfade normalisieren: Query weg, Zahlen/IDs -> :id (keine Kundennummern o. Ae. in Schluesseln) */
+export function normalizePath(raw: unknown): { key: string; path: string } | null {
+  if (typeof raw !== 'string' || !raw.startsWith('/')) return null;
+  const path = raw.split(/[?#]/)[0].slice(0, 160);
+  const key = path
+    .split('/')
+    .map((seg) => (/^\d+$/.test(seg) || /^[0-9a-f-]{16,}$/i.test(seg) || /\d{4,}/.test(seg) ? ':id' : seg))
+    .join('/')
+    .slice(0, 120);
+  return { key: key || '/', path };
+}
 const PAGE_TYPES = new Set(['home', 'category', 'product', 'cart', 'checkout', 'confirmation', 'other']);
 const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
@@ -45,6 +66,10 @@ publicRouter.post('/collect', (req, res) => {
     `INSERT INTO events (shop_id, visitor_id, session_id, type, page_type, sku, value, experiment_id, variant)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
+  const insertClick = db.prepare(
+    `INSERT INTO click_events (shop_id, visitor_id, session_id, page_key, page_path, page_type, kind, selector, label, ox, oy, px, py, device)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
   let accepted = 0;
   db.transaction(() => {
     for (const e of events) {
@@ -56,6 +81,16 @@ publicRouter.post('/collect', (req, res) => {
       const variant = allowedVariants.includes(e.variant) ? e.variant : null;
       if (e.type === 'exposure' && (experimentId === null || variant === null)) continue;
       if (e.type === 'group' && variant === null) continue;
+      if (CLICK_KINDS.has(e.type)) {
+        const page = normalizePath(e.path);
+        const selector = str(e.selector, 200);
+        if (!page || !selector || !DEVICES.has(e.device)) continue;
+        insertClick.run(shop.id, visitorId, sessionId, page.key, page.path, pageType, e.type, selector, str(e.label, 60), unit(e.ox), unit(e.oy), unit(e.px), unit(e.py), e.device);
+        if (e.type === 'click') {
+          accepted += 1;
+          continue; // normale Klicks nur in click_events; Frust-Signale zusaetzlich als Ereignis (unten gezaehlt)
+        }
+      }
       insert.run(shop.id, visitorId, sessionId, e.type, pageType, str(e.sku, 64), value, experimentId, variant);
       accepted += 1;
       // Einzelpositionen einer Bestellung fuer ehrlichen Social Proof je Produkt
@@ -184,6 +219,24 @@ function nudgeData(shop: ShopRow, nudgeType: string, config: Record<string, unkn
   }
   return data;
 }
+
+/**
+ * Heatmap-Daten fuer die Ansicht auf der Shopseite. Nur mit gueltigem, signiertem Token aus dem
+ * Dashboard (15 Minuten) – und nur fuer genau den Shop und die Seite, fuer die es ausgestellt wurde.
+ */
+publicRouter.get('/public/heatmap', (req, res) => {
+  const shop = shopByKey(req.query.key);
+  const t = verifyToken<{ s: number; p: string; d: string | null; n: number }>('heatmap', String(req.query.token ?? ''));
+  if (!shop || !t || t.s !== shop.id) return res.status(403).json({ error: 'Heatmap-Link ungültig oder abgelaufen.' });
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    pageKey: t.p,
+    device: t.d,
+    days: t.n,
+    points: heatmapPoints(shop.id, t.p, t.n, t.d ?? undefined),
+    elements: elementStats(shop.id, t.n, t.p, t.d ?? undefined, 30).map((e) => ({ selector: e.selector, rage: e.rage, dead: e.dead, clicks: e.clicks })),
+  });
+});
 
 function safeJson(s: string): any {
   try {

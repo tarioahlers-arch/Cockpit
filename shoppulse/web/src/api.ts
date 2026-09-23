@@ -276,8 +276,41 @@ export const SEGMENT_LABEL: Record<string, string> = {
   convenience: 'Bequemlichkeitsorientiert',
   hesitant: 'Zögernd',
   explorer: 'Stöbernd',
+  frustrated: 'Frustriert',
   undetermined: 'Noch unklar',
 };
+
+export interface ClickElement {
+  selector: string;
+  label: string | null;
+  pageKey: string;
+  clicks: number;
+  rage: number;
+  dead: number;
+  sessions: number;
+  rageSessions: number;
+  deadSessions: number;
+}
+
+export interface ClicksOverview {
+  summary: {
+    days: number;
+    clicks: number;
+    sessions: number;
+    frustratedSessions: number;
+    frustrationRate: number;
+    rageClicks: number;
+    deadClicks: number;
+    scrollThrash: number;
+    rageSessions: number;
+    deadSessions: number;
+    thrashSessions: number;
+    conversionFrustrated: number;
+    conversionOthers: number;
+  };
+  pages: { pageKey: string; pageType: string | null; pagePath: string; clicks: number; rage: number; dead: number; sessions: number }[];
+  problemElements: ClickElement[];
+}
 
 export interface AiStatus {
   configured: boolean;
@@ -381,6 +414,17 @@ export const api = {
   setSwarm: (shopId: number, participate: boolean) =>
     request<{ ok: true; removed?: number }>(`/shops/${shopId}/swarm`, { method: 'PUT', body: JSON.stringify({ participate }) }),
   setRolloutSegments: (id: number, segments: string[] | null) => patch<{ ok: true }>(`/rollouts/${id}`, { segments }),
+  clicks: (shopId: number, days: number) => request<ClicksOverview>(`/shops/${shopId}/clicks?days=${days}`),
+  clickPage: (shopId: number, page: string, days: number, device: string) =>
+    request<{ pageKey: string; elements: ClickElement[]; depth: { from: number; to: number; clicks: number; share: number }[] }>(
+      `/shops/${shopId}/clicks/page?page=${encodeURIComponent(page)}&days=${days}${device ? `&device=${device}` : ''}`,
+    ),
+  heatmapLink: (shopId: number, page: string, days: number, device: string) =>
+    post<{ token: string; pagePath: string; domain: string; isDemo: boolean }>(`/shops/${shopId}/clicks/heatmap-link`, {
+      page,
+      days,
+      device: device || undefined,
+    }),
   aiStatus: () => request<AiStatus>('/ai/status'),
   ask: (shopId: number, question: string, history: { role: 'user' | 'assistant'; content: string }[]) =>
     post<AdvisorAnswer>(`/shops/${shopId}/advisor`, { question, history }),

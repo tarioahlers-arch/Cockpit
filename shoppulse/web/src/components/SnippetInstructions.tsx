@@ -70,7 +70,8 @@ export default function SnippetInstructions({ shop }: { shop: Shop }) {
         <strong>Datenschutz by Design:</strong> Das Snippet speichert und sendet nichts, bevor{' '}
         <code>ShopPulse.consent(true)</code> aufgerufen wurde. Es erzeugt nur eine zufällige, pseudonyme Besucher-ID – keine
         IP-Adressen, keine Cookies von Drittanbietern, keine personenbezogenen Daten. Nudges erscheinen ausschließlich mit
-        echten Daten (echte Kaufzahlen, echter Bestand, gültiger Referenzpreis).
+        echten Daten (echte Kaufzahlen, echter Bestand, gültiger Referenzpreis). Die Klick-Analyse speichert keine Texteingaben;
+        Bereiche wie das Kundenkonto nehmen Sie mit <code>data-sp-private</code> komplett aus.
       </div>
     </div>
   );

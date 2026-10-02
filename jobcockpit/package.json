@@ -1,0 +1,19 @@
+{
+  "name": "jobcockpit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JobCockpit – DSGVO-konforme, KI-gestützte Bewerbungsassistenz für den DACH-Raum",
+  "scripts": {
+    "mobile": "npm --prefix apps/mobile run start",
+    "lint": "npm --prefix apps/mobile run lint",
+    "typecheck": "npm --prefix apps/mobile run typecheck",
+    "test": "npm --prefix apps/mobile run test",
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "db:start": "npx supabase start",
+    "db:reset": "npx supabase db reset",
+    "db:types": "npx supabase gen types typescript --local > apps/mobile/types/database.generated.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

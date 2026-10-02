@@ -1,0 +1,63 @@
+{
+  "common": {
+    "appName": "JobCockpit",
+    "continue": "Continue",
+    "back": "Back",
+    "skip": "Skip",
+    "save": "Save",
+    "cancel": "Cancel",
+    "comingSoon": "Coming in one of the next phases."
+  },
+  "welcome": {
+    "slide1Title": "Apply with quality, not quantity",
+    "slide1Body": "Tailored cover letters in 30 seconds – following DACH application standards.",
+    "slide2Title": "Everything in one place",
+    "slide2Body": "Profile, CV versions, cover letters and application tracker in one app.",
+    "slide3Title": "Transparent pricing",
+    "slide3Body": "Start free with 3 cover letters per month. Pro for €{{monthly}}/month or €{{annual}}/year.",
+    "getStarted": "Get started",
+    "haveAccount": "I already have an account"
+  },
+  "auth": {
+    "signInTitle": "Sign in",
+    "signUpTitle": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "signInWithApple": "Sign in with Apple",
+    "signInWithGoogle": "Sign in with Google"
+  },
+  "tabs": {
+    "generator": "Cover letters",
+    "tracker": "Applications",
+    "careers": "Career pages",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "generator": {
+    "title": "Cover letter generator",
+    "newApplication": "New application",
+    "remaining_one": "{{count}} cover letter left this month",
+    "remaining_other": "{{count}} cover letters left this month"
+  },
+  "tracker": {
+    "title": "Application tracker",
+    "empty": "No applications tracked yet."
+  },
+  "careers": {
+    "title": "Career pages directory"
+  },
+  "profile": {
+    "title": "My profile"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "appearance": "Appearance",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "version": "Version {{version}}"
+  }
+}

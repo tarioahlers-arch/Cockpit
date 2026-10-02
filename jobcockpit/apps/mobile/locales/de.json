@@ -1,0 +1,63 @@
+{
+  "common": {
+    "appName": "JobCockpit",
+    "continue": "Weiter",
+    "back": "Zurück",
+    "skip": "Überspringen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "comingSoon": "Folgt in einer der nächsten Phasen."
+  },
+  "welcome": {
+    "slide1Title": "Bewerben mit Qualität statt Masse",
+    "slide1Body": "Maßgeschneiderte Anschreiben in 30 Sekunden – nach deutschen Bewerbungs-Standards.",
+    "slide2Title": "Alles an einem Ort",
+    "slide2Body": "Profil, Lebenslauf-Versionen, Anschreiben und Bewerbungs-Tracker in einer App.",
+    "slide3Title": "Transparente Preise",
+    "slide3Body": "Kostenlos starten mit 3 Anschreiben pro Monat. Pro für {{monthly}} €/Monat oder {{annual}} €/Jahr.",
+    "getStarted": "Los geht's",
+    "haveAccount": "Ich habe bereits ein Konto"
+  },
+  "auth": {
+    "signInTitle": "Anmelden",
+    "signUpTitle": "Konto erstellen",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "signIn": "Anmelden",
+    "signUp": "Registrieren",
+    "signInWithApple": "Mit Apple anmelden",
+    "signInWithGoogle": "Mit Google anmelden"
+  },
+  "tabs": {
+    "generator": "Anschreiben",
+    "tracker": "Bewerbungen",
+    "careers": "Karriereseiten",
+    "profile": "Profil",
+    "settings": "Einstellungen"
+  },
+  "generator": {
+    "title": "Anschreiben-Generator",
+    "newApplication": "Neue Bewerbung",
+    "remaining_one": "Noch {{count}} Anschreiben diesen Monat",
+    "remaining_other": "Noch {{count}} Anschreiben diesen Monat"
+  },
+  "tracker": {
+    "title": "Bewerbungs-Tracker",
+    "empty": "Noch keine Bewerbungen erfasst."
+  },
+  "careers": {
+    "title": "Karriereseiten-Verzeichnis"
+  },
+  "profile": {
+    "title": "Mein Profil"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "language": "Sprache",
+    "appearance": "Darstellung",
+    "themeSystem": "System",
+    "themeLight": "Hell",
+    "themeDark": "Dunkel",
+    "version": "Version {{version}}"
+  }
+}

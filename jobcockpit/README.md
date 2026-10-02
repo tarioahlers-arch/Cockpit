@@ -25,6 +25,7 @@ Quality-First statt Mass-Apply, gebaut für Jobsuchende im DACH-Raum.
 
 ```
 jobcockpit/
+├── .github/workflows/    # CI (Lint, Typecheck, Tests) + wöchentlicher Link-Check
 ├── apps/mobile/          # Expo App
 │   ├── app/              # Expo-Router-Routen: (auth)/, (tabs)/, _layout.tsx
 │   ├── components/       # Geteilte UI-Komponenten
@@ -33,13 +34,14 @@ jobcockpit/
 │   ├── stores/           # Zustand-Stores
 │   ├── types/            # Globale Typen (u. a. Datenbank)
 │   ├── locales/          # de.json, en.json
-│   └── assets/           # Icons, Fonts, Bilder
+│   └── assets/           # App-Icons (aus assets/brand/logo-source.png generiert)
 ├── supabase/
 │   ├── migrations/       # DB-Schema inkl. RLS
+│   ├── data/             # Kuratierte Daten (Karriereseiten-Verzeichnis als JSON)
 │   ├── functions/        # Edge Functions (ab Phase 3)
-│   └── seed.sql          # Testdaten (Karriereseiten)
+│   └── seed.sql          # Lokale Testdaten
 ├── docs/                 # Architektur & Entscheidungen
-└── scripts/              # Build-/Release-Skripte
+└── scripts/              # Icon-Generator, Daten-Migration, Link-Check (siehe scripts/README.md)
 ```
 
 ## Schnellstart
@@ -71,6 +73,8 @@ npm run db:types                  # generierte DB-Typen für die App
 ```
 
 Gegen das Cloud-Projekt (Frankfurt): `npx supabase link --project-ref <ref>` und `npx supabase db push`.
+Ohne CLI: Inhalt der Dateien in `supabase/migrations/` der Reihe nach im Supabase-Dashboard unter
+**SQL Editor** ausführen.
 
 ## Datenbank
 
@@ -82,6 +86,7 @@ Siehe `supabase/migrations/20261002000000_initial_schema.sql`. Kernpunkte:
 - `cover_letters` und `usage_tracking` werden nur serverseitig angelegt, damit das Rate-Limit nicht umgangen werden kann.
 - Tier-Limits (1 bzw. 5 CVs, 20 Bewerbungen im Free-Tier) werden zusätzlich per Trigger erzwungen.
 - Privater Storage-Bucket `cvs`, Ordner pro Nutzer-ID.
+- Karriereseiten-Verzeichnis (154 DACH-Firmen) kommt per Migration aus `supabase/data/career-companies.json`.
 - DSGVO: `audit_log`, `request_account_deletion()` (30 Tage Grace-Period), `last_active_at` für die Retention-Policy.
 
 ## Roadmap
@@ -89,7 +94,7 @@ Siehe `supabase/migrations/20261002000000_initial_schema.sql`. Kernpunkte:
 | Phase | Inhalt | Status |
 | --- | --- | --- |
 | 1 – Setup | Repo-Struktur, Expo + TS strict, DB-Schema/RLS, Tamagui, i18n, Navigation | in Arbeit |
-| 2 – Auth & Profil | Supabase Auth, Onboarding, Profil, CV-Upload | offen |
+| 2 – Auth & Profil | Supabase Auth (E-Mail, Apple, Google), Onboarding, Profil, CV-Upload | offen |
 | 3 – Generator | Edge Function (Claude), Generator-UI, Rate-Limiting, PDF-Export | offen |
 | 4 – Tracker | Liste/Detail/Statistik, CRUD, Push-Reminder | offen |
 | 5 – Monetarisierung | RevenueCat, Paywall, Abo-Verwaltung | offen |

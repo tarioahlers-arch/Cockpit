@@ -141,7 +141,9 @@ export interface CareerCompanyRow {
   category: string;
   careers_url: string;
   headquarters: string | null;
+  country: 'DE' | 'AT' | 'CH';
   created_at: string;
+  updated_at: string;
 }
 
 type Table<Row, Required extends keyof Row = never> = {

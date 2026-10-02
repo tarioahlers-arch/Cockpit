@@ -46,12 +46,20 @@ CV- und Tracker-Limits, Edge Function für das Anschreiben-Limit.
   damit neue Jobbörsen ohne Migration möglich sind.
 - **ANNAHME:** Anschreiben-Limit zählt pro Kalendermonat (nicht rollierende 30 Tage).
 - **ANNAHME:** Ein abgelaufenes Abo (`subscription_expires_at` in der Vergangenheit) zählt als Free.
-- **ANNAHME:** Seed enthält 12 Firmen als Start; die 50+ kuratierten Einträge folgen in Phase 3/4.
+- **ANNAHME:** Die Karriereseiten-Links (154 Firmen) sind nach bestem Wissen zusammengestellt, aber noch
+  nicht automatisiert geprüft – der Workflow `career-links.yml` prüft sie wöchentlich bzw. bei Änderungen.
 
 ## Vorschläge
 
 - **VORSCHLAG:** Modell `claude-sonnet-5-5` statt `claude-sonnet-4` (veraltet). Über
   `ANTHROPIC_MODEL` konfigurierbar; `cover_letters.model_used` protokolliert das tatsächlich genutzte Modell.
 - **VORSCHLAG:** DB-Typen nach Projekt-Anlage mit `supabase gen types` generieren statt handgeschrieben.
-- **VORSCHLAG:** CI-Workflow (`.github/workflows/jobcockpit-ci.yml`) mit `paths: jobcockpit/**`,
-  da das Repository weitere Projekte enthält.
+
+## Entschieden mit Produkt-Owner
+
+- Eigenes Repository `jobcockpit` (statt Unterordner im Sammel-Repo).
+- Social Login in Phase 2: E-Mail/Passwort, Sign in with Apple **und** Google.
+- Karriereseiten-Verzeichnis: so viele DACH-Firmen wie möglich. Pflege über
+  `supabase/data/career-companies.json` + `scripts/build-career-companies.mjs`; Daten werden per
+  Migration ausgeliefert (nicht nur `seed.sql`), damit sie auch in Produktion vorhanden sind.
+- App-Icon: vom Produkt-Owner geliefertes Logo (Navy + Gold), Varianten via `scripts/generate-icons.py`.

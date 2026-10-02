@@ -1,0 +1,1080 @@
+[
+  {
+    "name": "Henkel",
+    "category": "FMCG",
+    "careers_url": "https://www.henkel.de/karriere",
+    "headquarters": "Düsseldorf",
+    "country": "DE"
+  },
+  {
+    "name": "Beiersdorf",
+    "category": "FMCG",
+    "careers_url": "https://www.beiersdorf.de/karriere",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "Nestlé Deutschland",
+    "category": "FMCG",
+    "careers_url": "https://www.nestle.de/jobs",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Nestlé",
+    "category": "FMCG",
+    "careers_url": "https://www.nestle.com/jobs",
+    "headquarters": "Vevey",
+    "country": "CH"
+  },
+  {
+    "name": "Unilever Deutschland",
+    "category": "FMCG",
+    "careers_url": "https://www.unilever.de/careers/",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "Procter & Gamble",
+    "category": "FMCG",
+    "careers_url": "https://www.pgcareers.com",
+    "headquarters": "Schwalbach am Taunus",
+    "country": "DE"
+  },
+  {
+    "name": "Dr. Oetker",
+    "category": "FMCG",
+    "careers_url": "https://www.oetker.de/karriere",
+    "headquarters": "Bielefeld",
+    "country": "DE"
+  },
+  {
+    "name": "Ferrero",
+    "category": "FMCG",
+    "careers_url": "https://www.ferrerocareers.com",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Mars",
+    "category": "FMCG",
+    "careers_url": "https://careers.mars.com",
+    "headquarters": "Verden (Aller)",
+    "country": "DE"
+  },
+  {
+    "name": "Haribo",
+    "category": "FMCG",
+    "careers_url": "https://www.haribo.com/de-de/karriere",
+    "headquarters": "Grafschaft",
+    "country": "DE"
+  },
+  {
+    "name": "Red Bull",
+    "category": "FMCG",
+    "careers_url": "https://jobs.redbull.com",
+    "headquarters": "Fuschl am See",
+    "country": "AT"
+  },
+  {
+    "name": "L'Oréal",
+    "category": "FMCG",
+    "careers_url": "https://careers.loreal.com",
+    "headquarters": "Düsseldorf",
+    "country": "DE"
+  },
+  {
+    "name": "Danone",
+    "category": "FMCG",
+    "careers_url": "https://www.danone.de/karriere",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Mondelēz International",
+    "category": "FMCG",
+    "careers_url": "https://www.mondelezinternational.com/careers",
+    "headquarters": "Bremen",
+    "country": "DE"
+  },
+  {
+    "name": "Lindt & Sprüngli",
+    "category": "FMCG",
+    "careers_url": "https://www.lindt-spruengli.com/careers",
+    "headquarters": "Kilchberg",
+    "country": "CH"
+  },
+  {
+    "name": "Bahlsen",
+    "category": "FMCG",
+    "careers_url": "https://www.bahlsen.com/karriere",
+    "headquarters": "Hannover",
+    "country": "DE"
+  },
+  {
+    "name": "Melitta",
+    "category": "FMCG",
+    "careers_url": "https://www.melitta-group.com/de/Karriere",
+    "headquarters": "Minden",
+    "country": "DE"
+  },
+  {
+    "name": "Tchibo",
+    "category": "FMCG",
+    "careers_url": "https://www.tchibo-karriere.de",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "Rügenwalder Mühle",
+    "category": "FMCG",
+    "careers_url": "https://www.ruegenwalder.de/karriere",
+    "headquarters": "Bad Zwischenahn",
+    "country": "DE"
+  },
+  {
+    "name": "Reckitt",
+    "category": "FMCG",
+    "careers_url": "https://careers.reckitt.com",
+    "headquarters": "Heidelberg",
+    "country": "DE"
+  },
+  {
+    "name": "Colgate-Palmolive",
+    "category": "FMCG",
+    "careers_url": "https://jobs.colgate.com",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "HiPP",
+    "category": "FMCG",
+    "careers_url": "https://www.hipp.de/karriere",
+    "headquarters": "Pfaffenhofen an der Ilm",
+    "country": "DE"
+  },
+  {
+    "name": "Storck",
+    "category": "FMCG",
+    "careers_url": "https://www.storck.com/de/karriere",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Coca-Cola Europacific Partners",
+    "category": "FMCG",
+    "careers_url": "https://www.cocacolaep.com/de/karriere/",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Symrise",
+    "category": "FMCG",
+    "careers_url": "https://www.symrise.com/careers/",
+    "headquarters": "Holzminden",
+    "country": "DE"
+  },
+  {
+    "name": "Emmi",
+    "category": "FMCG",
+    "careers_url": "https://group.emmi.com/de/karriere",
+    "headquarters": "Luzern",
+    "country": "CH"
+  },
+  {
+    "name": "Manner",
+    "category": "FMCG",
+    "careers_url": "https://www.manner.com/de/karriere",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "dm-drogerie markt",
+    "category": "Retail",
+    "careers_url": "https://www.dm.de/karriere",
+    "headquarters": "Karlsruhe",
+    "country": "DE"
+  },
+  {
+    "name": "Rossmann",
+    "category": "Retail",
+    "careers_url": "https://jobs.rossmann.de",
+    "headquarters": "Burgwedel",
+    "country": "DE"
+  },
+  {
+    "name": "ALDI SÜD",
+    "category": "Retail",
+    "careers_url": "https://karriere.aldi-sued.de",
+    "headquarters": "Mülheim an der Ruhr",
+    "country": "DE"
+  },
+  {
+    "name": "ALDI Nord",
+    "category": "Retail",
+    "careers_url": "https://karriere.aldi-nord.de",
+    "headquarters": "Essen",
+    "country": "DE"
+  },
+  {
+    "name": "Lidl",
+    "category": "Retail",
+    "careers_url": "https://jobs.lidl.de",
+    "headquarters": "Neckarsulm",
+    "country": "DE"
+  },
+  {
+    "name": "Kaufland",
+    "category": "Retail",
+    "careers_url": "https://jobs.kaufland.de",
+    "headquarters": "Neckarsulm",
+    "country": "DE"
+  },
+  {
+    "name": "REWE Group",
+    "category": "Retail",
+    "careers_url": "https://karriere.rewe-group.com",
+    "headquarters": "Köln",
+    "country": "DE"
+  },
+  {
+    "name": "EDEKA",
+    "category": "Retail",
+    "careers_url": "https://verbund.edeka/karriere/",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "Otto Group",
+    "category": "Retail",
+    "careers_url": "https://www.ottogroup.com/de/karriere/",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "MediaMarktSaturn",
+    "category": "Retail",
+    "careers_url": "https://www.mediamarktsaturn.com/karriere",
+    "headquarters": "Ingolstadt",
+    "country": "DE"
+  },
+  {
+    "name": "IKEA",
+    "category": "Retail",
+    "careers_url": "https://jobs.ikea.com",
+    "headquarters": "Hofheim-Wallau",
+    "country": "DE"
+  },
+  {
+    "name": "H&M",
+    "category": "Retail",
+    "careers_url": "https://career.hm.com",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "Douglas",
+    "category": "Retail",
+    "careers_url": "https://www.douglas.group/de/karriere",
+    "headquarters": "Düsseldorf",
+    "country": "DE"
+  },
+  {
+    "name": "Hornbach",
+    "category": "Retail",
+    "careers_url": "https://karriere.hornbach.de",
+    "headquarters": "Bornheim",
+    "country": "DE"
+  },
+  {
+    "name": "Migros",
+    "category": "Retail",
+    "careers_url": "https://jobs.migros.ch",
+    "headquarters": "Zürich",
+    "country": "CH"
+  },
+  {
+    "name": "Coop",
+    "category": "Retail",
+    "careers_url": "https://www.coop.ch/de/unternehmen/jobs-karriere.html",
+    "headquarters": "Basel",
+    "country": "CH"
+  },
+  {
+    "name": "SPAR Österreich",
+    "category": "Retail",
+    "careers_url": "https://www.spar.at/karriere",
+    "headquarters": "Salzburg",
+    "country": "AT"
+  },
+  {
+    "name": "XXXLutz",
+    "category": "Retail",
+    "careers_url": "https://www.xxxlutz.at/karriere",
+    "headquarters": "Wels",
+    "country": "AT"
+  },
+  {
+    "name": "SAP",
+    "category": "Tech",
+    "careers_url": "https://jobs.sap.com",
+    "headquarters": "Walldorf",
+    "country": "DE"
+  },
+  {
+    "name": "Zalando",
+    "category": "Tech",
+    "careers_url": "https://jobs.zalando.com",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Delivery Hero",
+    "category": "Tech",
+    "careers_url": "https://careers.deliveryhero.com",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "N26",
+    "category": "Tech",
+    "careers_url": "https://n26.com/en/careers",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Celonis",
+    "category": "Tech",
+    "careers_url": "https://www.celonis.com/careers/",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Personio",
+    "category": "Tech",
+    "careers_url": "https://www.personio.com/about-personio/careers/",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "HelloFresh",
+    "category": "Tech",
+    "careers_url": "https://careers.hellofresh.com",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Trade Republic",
+    "category": "Tech",
+    "careers_url": "https://traderepublic.com/careers",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Scout24",
+    "category": "Tech",
+    "careers_url": "https://www.scout24.com/karriere",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "CHECK24",
+    "category": "Tech",
+    "careers_url": "https://jobs.check24.de",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "AUTO1 Group",
+    "category": "Tech",
+    "careers_url": "https://www.auto1-group.com/de/jobs/",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "GetYourGuide",
+    "category": "Tech",
+    "careers_url": "https://www.getyourguide.careers",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Flix",
+    "category": "Tech",
+    "careers_url": "https://www.flix.careers",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Bitpanda",
+    "category": "Tech",
+    "careers_url": "https://www.bitpanda.com/en/career",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "Dynatrace",
+    "category": "Tech",
+    "careers_url": "https://careers.dynatrace.com",
+    "headquarters": "Linz",
+    "country": "AT"
+  },
+  {
+    "name": "Google",
+    "category": "Tech",
+    "careers_url": "https://careers.google.com",
+    "headquarters": "Zürich",
+    "country": "CH"
+  },
+  {
+    "name": "Microsoft",
+    "category": "Tech",
+    "careers_url": "https://careers.microsoft.com",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Amazon",
+    "category": "Tech",
+    "careers_url": "https://www.amazon.jobs",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Apple",
+    "category": "Tech",
+    "careers_url": "https://jobs.apple.com",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "IBM",
+    "category": "Tech",
+    "careers_url": "https://www.ibm.com/careers",
+    "headquarters": "Ehningen",
+    "country": "DE"
+  },
+  {
+    "name": "Infineon",
+    "category": "Tech",
+    "careers_url": "https://www.infineon.com/careers",
+    "headquarters": "Neubiberg",
+    "country": "DE"
+  },
+  {
+    "name": "United Internet",
+    "category": "Tech",
+    "careers_url": "https://www.united-internet.de/karriere.html",
+    "headquarters": "Montabaur",
+    "country": "DE"
+  },
+  {
+    "name": "Deutsche Telekom",
+    "category": "Telekommunikation",
+    "careers_url": "https://www.telekom.com/de/karriere",
+    "headquarters": "Bonn",
+    "country": "DE"
+  },
+  {
+    "name": "Vodafone",
+    "category": "Telekommunikation",
+    "careers_url": "https://careers.vodafone.com",
+    "headquarters": "Düsseldorf",
+    "country": "DE"
+  },
+  {
+    "name": "Telefónica Deutschland",
+    "category": "Telekommunikation",
+    "careers_url": "https://www.telefonica.de/karriere.html",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Swisscom",
+    "category": "Telekommunikation",
+    "careers_url": "https://www.swisscom.ch/de/about/jobs.html",
+    "headquarters": "Ittigen",
+    "country": "CH"
+  },
+  {
+    "name": "A1 Telekom Austria",
+    "category": "Telekommunikation",
+    "careers_url": "https://jobs.a1.net",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "BMW Group",
+    "category": "Automotive",
+    "careers_url": "https://www.bmwgroup.jobs",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Mercedes-Benz Group",
+    "category": "Automotive",
+    "careers_url": "https://group.mercedes-benz.com/karriere/",
+    "headquarters": "Stuttgart",
+    "country": "DE"
+  },
+  {
+    "name": "Volkswagen Group",
+    "category": "Automotive",
+    "careers_url": "https://www.volkswagen-group.com/de/karriere",
+    "headquarters": "Wolfsburg",
+    "country": "DE"
+  },
+  {
+    "name": "Audi",
+    "category": "Automotive",
+    "careers_url": "https://www.audi.com/de/company/careers.html",
+    "headquarters": "Ingolstadt",
+    "country": "DE"
+  },
+  {
+    "name": "Porsche",
+    "category": "Automotive",
+    "careers_url": "https://jobs.porsche.com",
+    "headquarters": "Stuttgart",
+    "country": "DE"
+  },
+  {
+    "name": "Continental",
+    "category": "Automotive",
+    "careers_url": "https://jobs.continental.com",
+    "headquarters": "Hannover",
+    "country": "DE"
+  },
+  {
+    "name": "ZF Friedrichshafen",
+    "category": "Automotive",
+    "careers_url": "https://jobs.zf.com",
+    "headquarters": "Friedrichshafen",
+    "country": "DE"
+  },
+  {
+    "name": "Schaeffler",
+    "category": "Automotive",
+    "careers_url": "https://www.schaeffler.com/de/karriere/",
+    "headquarters": "Herzogenaurach",
+    "country": "DE"
+  },
+  {
+    "name": "Magna",
+    "category": "Automotive",
+    "careers_url": "https://www.magna.com/careers",
+    "headquarters": "Graz",
+    "country": "AT"
+  },
+  {
+    "name": "Siemens",
+    "category": "Industrie",
+    "careers_url": "https://jobs.siemens.com",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Siemens Healthineers",
+    "category": "Industrie",
+    "careers_url": "https://www.siemens-healthineers.com/de/careers",
+    "headquarters": "Erlangen",
+    "country": "DE"
+  },
+  {
+    "name": "Siemens Energy",
+    "category": "Industrie",
+    "careers_url": "https://www.siemens-energy.com/de/de/karriere.html",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Bosch",
+    "category": "Industrie",
+    "careers_url": "https://www.bosch.de/karriere/",
+    "headquarters": "Gerlingen",
+    "country": "DE"
+  },
+  {
+    "name": "thyssenkrupp",
+    "category": "Industrie",
+    "careers_url": "https://www.thyssenkrupp.com/de/karriere",
+    "headquarters": "Essen",
+    "country": "DE"
+  },
+  {
+    "name": "ABB",
+    "category": "Industrie",
+    "careers_url": "https://careers.abb",
+    "headquarters": "Zürich",
+    "country": "CH"
+  },
+  {
+    "name": "Airbus",
+    "category": "Industrie",
+    "careers_url": "https://www.airbus.com/en/careers",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "TRUMPF",
+    "category": "Industrie",
+    "careers_url": "https://www.trumpf.com/de_DE/karriere/",
+    "headquarters": "Ditzingen",
+    "country": "DE"
+  },
+  {
+    "name": "Festo",
+    "category": "Industrie",
+    "careers_url": "https://www.festo.com/careers",
+    "headquarters": "Esslingen am Neckar",
+    "country": "DE"
+  },
+  {
+    "name": "Miele",
+    "category": "Industrie",
+    "careers_url": "https://www.miele.de/karriere",
+    "headquarters": "Gütersloh",
+    "country": "DE"
+  },
+  {
+    "name": "Würth",
+    "category": "Industrie",
+    "careers_url": "https://www.wuerth.de/karriere",
+    "headquarters": "Künzelsau",
+    "country": "DE"
+  },
+  {
+    "name": "voestalpine",
+    "category": "Industrie",
+    "careers_url": "https://www.voestalpine.com/group/de/karriere/",
+    "headquarters": "Linz",
+    "country": "AT"
+  },
+  {
+    "name": "Schindler",
+    "category": "Industrie",
+    "careers_url": "https://www.schindler.com/careers",
+    "headquarters": "Ebikon",
+    "country": "CH"
+  },
+  {
+    "name": "BASF",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.basf.com/global/de/careers.html",
+    "headquarters": "Ludwigshafen am Rhein",
+    "country": "DE"
+  },
+  {
+    "name": "Bayer",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://karriere.bayer.de",
+    "headquarters": "Leverkusen",
+    "country": "DE"
+  },
+  {
+    "name": "Merck",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.merckgroup.com/de/careers.html",
+    "headquarters": "Darmstadt",
+    "country": "DE"
+  },
+  {
+    "name": "Boehringer Ingelheim",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.boehringer-ingelheim.com/de/karriere",
+    "headquarters": "Ingelheim am Rhein",
+    "country": "DE"
+  },
+  {
+    "name": "Fresenius",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://karriere.fresenius.de",
+    "headquarters": "Bad Homburg vor der Höhe",
+    "country": "DE"
+  },
+  {
+    "name": "B. Braun",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.bbraun.de/de/karriere.html",
+    "headquarters": "Melsungen",
+    "country": "DE"
+  },
+  {
+    "name": "Evonik",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://careers.evonik.com",
+    "headquarters": "Essen",
+    "country": "DE"
+  },
+  {
+    "name": "Covestro",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.covestro.com/en/careers",
+    "headquarters": "Leverkusen",
+    "country": "DE"
+  },
+  {
+    "name": "Roche",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://careers.roche.com",
+    "headquarters": "Basel",
+    "country": "CH"
+  },
+  {
+    "name": "Novartis",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.novartis.com/careers",
+    "headquarters": "Basel",
+    "country": "CH"
+  },
+  {
+    "name": "Sandoz",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.sandoz.com/careers",
+    "headquarters": "Basel",
+    "country": "CH"
+  },
+  {
+    "name": "Lonza",
+    "category": "Chemie & Pharma",
+    "careers_url": "https://www.lonza.com/careers",
+    "headquarters": "Basel",
+    "country": "CH"
+  },
+  {
+    "name": "E.ON",
+    "category": "Energie",
+    "careers_url": "https://www.eon.com/de/ueber-uns/karriere.html",
+    "headquarters": "Essen",
+    "country": "DE"
+  },
+  {
+    "name": "RWE",
+    "category": "Energie",
+    "careers_url": "https://www.rwe.com/karriere",
+    "headquarters": "Essen",
+    "country": "DE"
+  },
+  {
+    "name": "EnBW",
+    "category": "Energie",
+    "careers_url": "https://www.enbw.com/karriere",
+    "headquarters": "Karlsruhe",
+    "country": "DE"
+  },
+  {
+    "name": "OMV",
+    "category": "Energie",
+    "careers_url": "https://www.omv.com/de/karriere",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "VERBUND",
+    "category": "Energie",
+    "careers_url": "https://www.verbund.com/de-at/karriere",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "DHL Group",
+    "category": "Logistik & Mobilität",
+    "careers_url": "https://careers.dhl.com",
+    "headquarters": "Bonn",
+    "country": "DE"
+  },
+  {
+    "name": "Deutsche Bahn",
+    "category": "Logistik & Mobilität",
+    "careers_url": "https://karriere.deutschebahn.com",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Lufthansa Group",
+    "category": "Logistik & Mobilität",
+    "careers_url": "https://www.be-lufthansa.com",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Hapag-Lloyd",
+    "category": "Logistik & Mobilität",
+    "careers_url": "https://www.hapag-lloyd.com/de/company/career.html",
+    "headquarters": "Hamburg",
+    "country": "DE"
+  },
+  {
+    "name": "Kühne+Nagel",
+    "category": "Logistik & Mobilität",
+    "careers_url": "https://jobs.kuehne-nagel.com",
+    "headquarters": "Schindellegi",
+    "country": "CH"
+  },
+  {
+    "name": "ÖBB",
+    "category": "Logistik & Mobilität",
+    "careers_url": "https://karriere.oebb.at",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "SBB",
+    "category": "Logistik & Mobilität",
+    "careers_url": "https://company.sbb.ch/de/jobs-karriere.html",
+    "headquarters": "Bern",
+    "country": "CH"
+  },
+  {
+    "name": "McKinsey & Company",
+    "category": "Consulting",
+    "careers_url": "https://www.mckinsey.com/de/careers",
+    "headquarters": "Düsseldorf",
+    "country": "DE"
+  },
+  {
+    "name": "Boston Consulting Group",
+    "category": "Consulting",
+    "careers_url": "https://careers.bcg.com",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Bain & Company",
+    "category": "Consulting",
+    "careers_url": "https://www.bain.com/careers/",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Roland Berger",
+    "category": "Consulting",
+    "careers_url": "https://www.rolandberger.com/de/Join",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Simon-Kucher",
+    "category": "Consulting",
+    "careers_url": "https://www.simon-kucher.com/de/karriere",
+    "headquarters": "Bonn",
+    "country": "DE"
+  },
+  {
+    "name": "Oliver Wyman",
+    "category": "Consulting",
+    "careers_url": "https://www.oliverwyman.com/careers.html",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Kearney",
+    "category": "Consulting",
+    "careers_url": "https://www.kearney.com/careers",
+    "headquarters": "Düsseldorf",
+    "country": "DE"
+  },
+  {
+    "name": "Accenture",
+    "category": "Consulting",
+    "careers_url": "https://www.accenture.com/de-de/careers",
+    "headquarters": "Kronberg im Taunus",
+    "country": "DE"
+  },
+  {
+    "name": "Deloitte",
+    "category": "Consulting",
+    "careers_url": "https://www.deloitte.com/de/de/careers.html",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "PwC",
+    "category": "Consulting",
+    "careers_url": "https://www.pwc.de/de/karriere.html",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "KPMG",
+    "category": "Consulting",
+    "careers_url": "https://kpmg.com/de/de/home/karriere.html",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "EY",
+    "category": "Consulting",
+    "careers_url": "https://www.ey.com/de_de/careers",
+    "headquarters": "Stuttgart",
+    "country": "DE"
+  },
+  {
+    "name": "Capgemini",
+    "category": "Consulting",
+    "careers_url": "https://www.capgemini.com/de-de/karriere/",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "Porsche Consulting",
+    "category": "Consulting",
+    "careers_url": "https://www.porsche-consulting.com/de/karriere/",
+    "headquarters": "Bietigheim-Bissingen",
+    "country": "DE"
+  },
+  {
+    "name": "Horváth",
+    "category": "Consulting",
+    "careers_url": "https://www.horvath-partners.com/de/karriere",
+    "headquarters": "Stuttgart",
+    "country": "DE"
+  },
+  {
+    "name": "MHP",
+    "category": "Consulting",
+    "careers_url": "https://www.mhp.com/de/karriere",
+    "headquarters": "Ludwigsburg",
+    "country": "DE"
+  },
+  {
+    "name": "Allianz",
+    "category": "Finance",
+    "careers_url": "https://careers.allianz.com",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "Deutsche Bank",
+    "category": "Finance",
+    "careers_url": "https://careers.db.com",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Commerzbank",
+    "category": "Finance",
+    "careers_url": "https://jobs.commerzbank.com",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Munich Re",
+    "category": "Finance",
+    "careers_url": "https://www.munichre.com/de/karriere.html",
+    "headquarters": "München",
+    "country": "DE"
+  },
+  {
+    "name": "DZ BANK",
+    "category": "Finance",
+    "careers_url": "https://www.dzbank.de/karriere",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "ING Deutschland",
+    "category": "Finance",
+    "careers_url": "https://www.ing.de/ueber-uns/karriere/",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Deutsche Börse",
+    "category": "Finance",
+    "careers_url": "https://www.deutsche-boerse.com/dbg-de/karriere",
+    "headquarters": "Eschborn",
+    "country": "DE"
+  },
+  {
+    "name": "KfW",
+    "category": "Finance",
+    "careers_url": "https://www.kfw.de/KfW-Konzern/Karriere/",
+    "headquarters": "Frankfurt am Main",
+    "country": "DE"
+  },
+  {
+    "name": "Sparkassen-Finanzgruppe",
+    "category": "Finance",
+    "careers_url": "https://www.sparkasse.de/karriere.html",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "ERGO",
+    "category": "Finance",
+    "careers_url": "https://www.ergo.com/de/karriere",
+    "headquarters": "Düsseldorf",
+    "country": "DE"
+  },
+  {
+    "name": "HUK-COBURG",
+    "category": "Finance",
+    "careers_url": "https://karriere.huk.de",
+    "headquarters": "Coburg",
+    "country": "DE"
+  },
+  {
+    "name": "UBS",
+    "category": "Finance",
+    "careers_url": "https://www.ubs.com/global/de/careers.html",
+    "headquarters": "Zürich",
+    "country": "CH"
+  },
+  {
+    "name": "Zurich Insurance",
+    "category": "Finance",
+    "careers_url": "https://www.zurich.com/careers",
+    "headquarters": "Zürich",
+    "country": "CH"
+  },
+  {
+    "name": "Swiss Re",
+    "category": "Finance",
+    "careers_url": "https://www.swissre.com/careers.html",
+    "headquarters": "Zürich",
+    "country": "CH"
+  },
+  {
+    "name": "Erste Group",
+    "category": "Finance",
+    "careers_url": "https://www.erstegroup.com/de/karriere",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "Raiffeisen Bank International",
+    "category": "Finance",
+    "careers_url": "https://www.rbinternational.com/de/karriere.html",
+    "headquarters": "Wien",
+    "country": "AT"
+  },
+  {
+    "name": "Bertelsmann",
+    "category": "Medien",
+    "careers_url": "https://www.bertelsmann.de/karriere/",
+    "headquarters": "Gütersloh",
+    "country": "DE"
+  },
+  {
+    "name": "Axel Springer",
+    "category": "Medien",
+    "careers_url": "https://career.axelspringer.com",
+    "headquarters": "Berlin",
+    "country": "DE"
+  },
+  {
+    "name": "ProSiebenSat.1",
+    "category": "Medien",
+    "careers_url": "https://www.prosiebensat1.com/karriere",
+    "headquarters": "Unterföhring",
+    "country": "DE"
+  },
+  {
+    "name": "Hubert Burda Media",
+    "category": "Medien",
+    "careers_url": "https://www.burda.com/karriere/",
+    "headquarters": "Offenburg",
+    "country": "DE"
+  }
+]

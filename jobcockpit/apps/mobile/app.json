@@ -18,7 +18,7 @@
     "android": {
       "package": "com.jobcockpit.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1A2E4A",
+        "backgroundColor": "#152A47",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -41,8 +41,12 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#1A2E4A",
-          "image": "./assets/icon.png",
-          "imageWidth": 160
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "dark": {
+            "backgroundColor": "#0F1D31",
+            "image": "./assets/splash-icon.png"
+          }
         }
       ]
     ],

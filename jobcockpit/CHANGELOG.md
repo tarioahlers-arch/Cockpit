@@ -11,3 +11,6 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - i18n (DE/EN), Zustand-Settings-Store mit MMKV, Supabase-Client mit SecureStore-Session
 - Initiale Supabase-Migration inkl. RLS auf allen Tabellen, CV-Storage-Bucket, Tier-Limits
 - Unit-Tests für Pricing-Logik, SecureStore-Chunking, i18n und Settings-Store
+- App-Icon, Android Adaptive/Themed Icon, Splash und Favicon aus dem JobCockpit-Logo
+- Karriereseiten-Verzeichnis mit 154 DACH-Firmen (Daten-Migration, Generator, Link-Check)
+- GitHub Actions: CI (Lint, Typecheck, Prettier, Tests mit Coverage) und wöchentlicher Link-Check

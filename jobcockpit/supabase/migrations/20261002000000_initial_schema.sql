@@ -200,7 +200,9 @@ create table public.career_companies (
   category text not null, -- FMCG, Tech, Consulting, Finance, ...
   careers_url text not null check (careers_url ~ '^https://'),
   headquarters text,
-  created_at timestamptz not null default now()
+  country text not null default 'DE' check (country in ('DE', 'AT', 'CH')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 create index career_companies_category_idx on public.career_companies (category);
 
